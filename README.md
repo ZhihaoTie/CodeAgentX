@@ -183,6 +183,7 @@ py -3.13 -B demos/run_concurrency_limit_smoke.py
 POST /api/tasks
 GET  /api/runs/{runId}
 POST /api/runs/{runId}/refresh
+POST /api/runs/recover-queued
 POST /api/runs/{runId}/review
 POST /api/runs/{runId}/cancel
 GET  /api/runs/{runId}/events

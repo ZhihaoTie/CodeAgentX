@@ -251,7 +251,7 @@ GitHub Issue webhook receiver with repository metadata, idempotency key, and con
 Configurable bounded async worker for runtime submission
 Scheduled runtime poller for RUNNING -> NEEDS_REVIEW / FAILED status writeback
 Run timeout handling for stuck runtime executions, with a stuck-runtime timeout smoke script
-Startup recovery for persisted QUEUED runs after worker crash / service restart
+Startup recovery for persisted QUEUED runs after worker crash / service restart, plus `POST /api/runs/recover-queued` for explicit operational recovery
 Authorization-gated ResultPublisher boundary with no-op PR publisher
 Config-gated GitHub ResultPublisher skeleton for future real PR creation
 Patch artifact model for diff / tests / changed files / trajectory evidence

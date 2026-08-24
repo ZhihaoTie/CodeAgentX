@@ -83,6 +83,12 @@ public class RunController {
         return ResponseEntity.ok(workflowService.refreshFromRuntime(runId));
     }
 
+    @PostMapping("/runs/recover-queued")
+    public ResponseEntity<Map<String, Object>> recoverQueuedRuns() {
+        int recovered = workflowService.recoverQueuedRuns();
+        return ResponseEntity.ok(Map.<String, Object>of("recovered", recovered));
+    }
+
     @PostMapping("/runs/{runId}/review")
     public ResponseEntity<RunRecord> reviewRun(
         @PathVariable String runId,
