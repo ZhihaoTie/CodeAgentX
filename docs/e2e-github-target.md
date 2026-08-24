@@ -109,6 +109,12 @@ Replay the same GitHub issue delivery twice to verify webhook idempotency:
 py -3.13 -B demos/run_duplicate_issue_webhook_smoke.py
 ```
 
+Run the stuck-runtime timeout smoke with a short control-plane timeout:
+
+```powershell
+py -3.13 -B demos/run_timeout_smoke.py
+```
+
 The smoke script submits a REST task for the target repository and waits until the run reaches a reviewable or terminal state.
 
 Expected reviewable state:

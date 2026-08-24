@@ -250,7 +250,7 @@ Task idempotency key for duplicate submission / webhook replay protection, with 
 GitHub Issue webhook receiver with repository metadata, idempotency key, and configurable default verification command
 Bounded async worker for runtime submission
 Scheduled runtime poller for RUNNING -> NEEDS_REVIEW / FAILED status writeback
-Run timeout handling for stuck runtime executions
+Run timeout handling for stuck runtime executions, with a stuck-runtime timeout smoke script
 Startup recovery for persisted QUEUED runs after worker crash / service restart
 Authorization-gated ResultPublisher boundary with no-op PR publisher
 Config-gated GitHub ResultPublisher skeleton for future real PR creation
@@ -263,6 +263,7 @@ Configuration preflight endpoint: `/api/config/preflight` reports whether real G
 Target repository REST smoke script: `demos/run_target_repo_rest_smoke.py` submits `https://github.com/ZhihaoTie/CodeAgent.git` through the real task intake path
 Target repository issue webhook smoke script: `demos/run_target_repo_issue_webhook_smoke.py` submits the same target through `/api/webhooks/github` with GitHub-style `issues` headers and payload
 Duplicate issue webhook smoke script: `demos/run_duplicate_issue_webhook_smoke.py` replays the same `X-GitHub-Delivery` twice and asserts both responses return the same run id
+Timeout smoke script: `demos/run_timeout_smoke.py` runs against a fake runtime that never leaves `RUNNING` and verifies the control plane marks the run `FAILED` with a timeout reason
 Run summary endpoint: `/api/runs/summary` reports total runs, counts by status, and the 10 most recently updated runs for lightweight dashboard/readiness views
 Run cancellation endpoint: `/api/runs/{runId}/cancel` marks non-terminal runs as `CANCELLED`, records a cancellation event, and avoids submitting already-cancelled queued runs to the runtime
 Run timeline endpoint: `/api/runs/{runId}/timeline` combines persisted run events and review decisions into a lightweight audit trail
