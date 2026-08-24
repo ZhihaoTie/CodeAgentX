@@ -159,6 +159,12 @@ Submit the same target repository through the GitHub issue webhook path:
 py -3.13 -B demos/run_target_repo_issue_webhook_smoke.py
 ```
 
+Replay the same GitHub issue delivery twice to verify webhook idempotency:
+
+```powershell
+py -3.13 -B demos/run_duplicate_issue_webhook_smoke.py
+```
+
 ## Important endpoints
 
 ```text
