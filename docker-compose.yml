@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: codeagentx-postgres
+    environment:
+      POSTGRES_DB: codeagentx
+      POSTGRES_USER: codeagentx
+      POSTGRES_PASSWORD: codeagentx
+    ports:
+      - "5432:5432"
+    volumes:
+      - codeagentx-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codeagentx -d codeagentx"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  codeagentx-postgres-data:

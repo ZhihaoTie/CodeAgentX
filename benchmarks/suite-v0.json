@@ -1,0 +1,680 @@
+{
+  "metadata": {
+    "suite_id": "codeagentx-suite-v0",
+    "version": "0.1.0",
+    "description": "Fixed local benchmark suite for CodeAgent-X autonomous software-engineering loops.",
+    "created_on": "2026-07-30"
+  },
+  "defaults": {
+    "permission_mode": "auto",
+    "verification_timeout_seconds": 30,
+    "verification_sandbox": "local",
+    "enable_sandbox_artifacts": true,
+    "sandbox_snapshot_max_files": 500,
+    "sandbox_snapshot_max_recorded_files": 50,
+    "enable_runtime_planning": true,
+    "enable_context_ranking": true,
+    "context_ranking_limit": 6,
+    "enable_long_term_memory": true,
+    "memory_retrieval_limit": 3,
+    "memory_min_score": 60,
+    "memory_prompt_max_chars": 2500,
+    "enable_task_constraints": true,
+    "auto_rollback_on_verification_failure": true,
+    "enable_patch_policy": true,
+    "patch_policy_max_changed_files": 6,
+    "patch_policy_max_total_changed_lines": 300,
+    "enable_failure_reflection": true,
+    "max_reflection_retries": 1,
+    "enable_retry_strategy_matrix": true,
+    "enable_tool_planning_guidance": true
+  },
+  "ablation_variants": [
+    {
+      "name": "baseline",
+      "description": "All suite-v0 runtime, verification, recovery, and guidance modules enabled."
+    },
+    {
+      "name": "no_runtime_planning",
+      "description": "Disable Runtime Plan Lifecycle and Planner Repair evidence.",
+      "overrides": {
+        "enable_runtime_planning": false
+      }
+    },
+    {
+      "name": "no_context_ranking",
+      "description": "Disable ranked context injection before reflection retry.",
+      "overrides": {
+        "enable_context_ranking": false
+      }
+    },
+    {
+      "name": "no_long_term_memory",
+      "description": "Disable verified trajectory memory retrieval and extraction.",
+      "overrides": {
+        "enable_long_term_memory": false
+      }
+    },
+    {
+      "name": "no_failure_reflection",
+      "description": "Disable deterministic failure reflection and automatic retry.",
+      "overrides": {
+        "enable_failure_reflection": false,
+        "max_reflection_retries": 0
+      }
+    },
+    {
+      "name": "no_retry_strategy_matrix",
+      "description": "Keep retry enabled, but remove strategy-specific retry planning.",
+      "overrides": {
+        "enable_retry_strategy_matrix": false
+      }
+    },
+    {
+      "name": "no_tool_planning_guidance",
+      "description": "Keep retry strategy prompts, but disable runtime tool planning constraints.",
+      "overrides": {
+        "enable_tool_planning_guidance": false
+      }
+    },
+    {
+      "name": "no_task_constraints",
+      "description": "Disable deterministic task boundary checks.",
+      "overrides": {
+        "enable_task_constraints": false
+      }
+    },
+    {
+      "name": "no_patch_policy",
+      "description": "Disable patch policy quality gates.",
+      "overrides": {
+        "enable_patch_policy": false
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "id": "py-math-bug-fix",
+      "goal": "Fix the arithmetic helpers so add returns a sum and multiply returns a product. Do not edit tests.",
+      "workspace_root": "fixtures/py_math_bug",
+      "verification_command": "python -B -m unittest discover -s tests -v",
+      "success_criteria": [
+        "add handles positive and negative inputs",
+        "multiply returns the mathematical product",
+        "unit tests pass without modifying test files"
+      ],
+      "required_changed_paths": [
+        "app.py"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "python",
+        "bugfix",
+        "unit-test",
+        "focused-test"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "localized debugging",
+          "verification loop"
+        ]
+      }
+    },
+    {
+      "id": "py-string-slug-normalization",
+      "goal": "Implement slugify so it lowercases text, removes punctuation, collapses whitespace and symbol runs into single hyphens, and trims leading or trailing hyphens. Do not edit tests.",
+      "workspace_root": "fixtures/py_string_slug",
+      "verification_command": "python -B -m unittest discover -s tests -v",
+      "success_criteria": [
+        "punctuation is removed from slugs",
+        "repeated whitespace becomes one hyphen",
+        "symbol runs do not leave duplicate hyphens"
+      ],
+      "required_changed_paths": [
+        "src/*.py"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "python",
+        "string-processing",
+        "implementation"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "spec interpretation",
+          "edge-case handling"
+        ]
+      }
+    },
+    {
+      "id": "py-order-total-multifile",
+      "goal": "Fix order_total so it multiplies unit price by quantity before applying percentage discounts from shop.discounts. Do not edit tests.",
+      "workspace_root": "fixtures/py_order_total",
+      "verification_command": "python -B -m unittest discover -s tests -v",
+      "success_criteria": [
+        "quantity is included in subtotal",
+        "known discount codes apply as percentages",
+        "unknown discount codes keep the subtotal unchanged"
+      ],
+      "required_changed_paths": [
+        "shop/*.py"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "python",
+        "multi-file",
+        "business-logic",
+        "context-ranking"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "multi-file reasoning",
+          "domain invariant preservation"
+        ]
+      }
+    },
+    {
+      "id": "py-task-constraints-no-docs",
+      "goal": "Fix the inactive service status label to return disabled while keeping documentation and tests unchanged.",
+      "workspace_root": "fixtures/py_task_constraints",
+      "verification_command": "python -B -m unittest discover -s tests -v",
+      "success_criteria": [
+        "active services return enabled",
+        "inactive services return disabled",
+        "docs and tests remain unchanged"
+      ],
+      "required_changed_paths": [
+        "src/*.py"
+      ],
+      "forbidden_changed_paths": [
+        "docs/*",
+        "tests/*"
+      ],
+      "tags": [
+        "python",
+        "constraints",
+        "patch-policy"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "task constraints",
+          "minimal patching"
+        ]
+      }
+    },
+    {
+      "id": "js-static-todo-toggle",
+      "goal": "Fix toggleTodo so it returns a new list where only the todo with the matching id has completed inverted; all other todos keep their existing completed value. Do not edit tests.",
+      "workspace_root": "fixtures/js_static_todo",
+      "verification_command": "python -B tests/validate_todo.py",
+      "success_criteria": [
+        "the implementation checks each item's id against the requested id",
+        "the matching item's completed flag is inverted",
+        "non-matching items are preserved"
+      ],
+      "required_changed_paths": [
+        "todo.js"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "javascript",
+        "static-validation",
+        "frontend-logic"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "language transfer",
+          "immutable update pattern"
+        ]
+      }
+    },
+    {
+      "id": "ts-static-export-surface",
+      "goal": "Update the TypeScript public export surface so both add and subtract are re-exported from src/index.ts. Do not edit tests.",
+      "workspace_root": "fixtures/ts_static_import",
+      "verification_command": "python -B tests/validate_exports.py",
+      "success_criteria": [
+        "src/index.ts re-exports subtract",
+        "exports continue to come from ./math",
+        "validator passes without modifying tests"
+      ],
+      "required_changed_paths": [
+        "src/index.ts"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "typescript",
+        "static-validation",
+        "api-surface"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "public API maintenance",
+          "small targeted edit"
+        ]
+      }
+    },
+    {
+      "id": "py-cli-flag-parsing",
+      "goal": "Fix parse_flags so it handles --verbose and --limit N while preserving the documented defaults. Do not edit tests.",
+      "workspace_root": "fixtures/py_cli_flags",
+      "verification_command": "python -B -m unittest discover -s tests -v",
+      "success_criteria": [
+        "empty argv returns verbose false and limit 10",
+        "--verbose sets verbose true",
+        "--limit N parses N as an integer"
+      ],
+      "required_changed_paths": [
+        "cli_flags.py"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "python",
+        "cli",
+        "argument-parsing"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "input parsing",
+          "default preservation"
+        ]
+      }
+    },
+    {
+      "id": "py-config-merge-no-mutation",
+      "goal": "Fix merge_config so overrides are deep-merged into a new config without mutating defaults. Do not edit tests.",
+      "workspace_root": "fixtures/py_config_merge",
+      "verification_command": "python -B -m unittest discover -s tests -v",
+      "success_criteria": [
+        "top-level overrides preserve unspecified defaults",
+        "nested dictionaries are merged instead of replaced",
+        "the defaults input is not mutated"
+      ],
+      "required_changed_paths": [
+        "src/*.py"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "python",
+        "configuration",
+        "side-effect-control"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "data structure reasoning",
+          "mutation avoidance"
+        ]
+      }
+    },
+    {
+      "id": "js-static-remove-todo",
+      "goal": "Fix removeTodo so it returns a new array without the item whose id matches the requested id. Do not mutate the input and do not edit tests.",
+      "workspace_root": "fixtures/js_static_remove",
+      "verification_command": "python -B tests/validate_remove.py",
+      "success_criteria": [
+        "the implementation filters the input array",
+        "items with non-matching ids are preserved",
+        "the input array is not mutated"
+      ],
+      "required_changed_paths": [
+        "todo_list.js"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "javascript",
+        "static-validation",
+        "immutable-update"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "immutable collection update",
+          "static validation"
+        ]
+      }
+    },
+    {
+      "id": "ts-static-union-render",
+      "goal": "Fix renderResult so it handles both success and error Result variants. Do not edit tests.",
+      "workspace_root": "fixtures/ts_static_union",
+      "verification_command": "python -B tests/validate_render.py",
+      "success_criteria": [
+        "success results render the value",
+        "error results render the message",
+        "the implementation branches on the discriminated union kind"
+      ],
+      "required_changed_paths": [
+        "src/render.ts"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "typescript",
+        "static-validation",
+        "union-handling"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "type-shape reasoning",
+          "branch coverage"
+        ]
+      }
+    },
+    {
+      "id": "py-dedupe-users-preserve-first",
+      "goal": "Fix unique_users so it deduplicates users by id while preserving the first occurrence and original order. Do not edit tests.",
+      "workspace_root": "fixtures/py_dedupe_users",
+      "verification_command": "python -B -m unittest discover -s tests -v",
+      "success_criteria": [
+        "duplicate ids keep the first user record",
+        "result order follows first appearance in the input",
+        "the input list is not mutated"
+      ],
+      "required_changed_paths": [
+        "src/*.py"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "python",
+        "data-structure",
+        "order-preservation"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "deduplication semantics",
+          "mutation avoidance"
+        ]
+      }
+    },
+    {
+      "id": "py-query-params-stable-encoding",
+      "goal": "Fix build_query so it skips None values, sorts keys for stable output, and URL-encodes spaces and symbols. Do not edit tests.",
+      "workspace_root": "fixtures/py_query_params",
+      "verification_command": "python -B -m unittest discover -s tests -v",
+      "success_criteria": [
+        "query parameters are sorted by key",
+        "None values are omitted",
+        "spaces and symbols are URL-encoded"
+      ],
+      "required_changed_paths": [
+        "src/*.py"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "python",
+        "encoding",
+        "deterministic-output"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "standard library use",
+          "edge-case handling"
+        ]
+      }
+    },
+    {
+      "id": "py-retry-backoff-cap",
+      "goal": "Fix retry_delays so it returns one exponential delay per retry attempt and caps each delay at the configured maximum. Do not edit tests.",
+      "workspace_root": "fixtures/py_retry_backoff",
+      "verification_command": "python -B -m unittest discover -s tests -v",
+      "success_criteria": [
+        "attempt count controls the number of returned delays",
+        "delays grow exponentially from the base",
+        "large delays are capped"
+      ],
+      "required_changed_paths": [
+        "src/*.py"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "python",
+        "retry",
+        "boundary-condition"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "off-by-one repair",
+          "limit enforcement"
+        ]
+      }
+    },
+    {
+      "id": "py-sales-summary-filter-refunds",
+      "goal": "Fix summarize_sales so it ignores refunded rows, totals only paid sales, and returns zero average when there are no paid rows. Do not edit tests.",
+      "workspace_root": "fixtures/py_sales_summary",
+      "verification_command": "python -B -m unittest discover -s tests -v",
+      "success_criteria": [
+        "refunded sales are excluded",
+        "paid sales count, total, and average are correct",
+        "empty paid-sales input returns zero average"
+      ],
+      "required_changed_paths": [
+        "src/*.py"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "python",
+        "business-logic",
+        "edge-case"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "domain filtering",
+          "empty-state handling"
+        ]
+      }
+    },
+    {
+      "id": "py-moving-average-window",
+      "goal": "Fix moving_average so it computes rolling averages for each complete window and rejects non-positive window sizes. Do not edit tests.",
+      "workspace_root": "fixtures/py_moving_average",
+      "verification_command": "python -B -m unittest discover -s tests -v",
+      "success_criteria": [
+        "rolling averages use only complete windows",
+        "window sizes larger than the input return an empty list",
+        "non-positive window sizes raise ValueError"
+      ],
+      "required_changed_paths": [
+        "src/*.py"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "python",
+        "algorithm",
+        "validation"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "windowed computation",
+          "input validation"
+        ]
+      }
+    },
+    {
+      "id": "js-static-priority-sort-copy",
+      "goal": "Fix sortTasks so it returns a copied list sorted by priority without mutating the input array. Do not edit tests.",
+      "workspace_root": "fixtures/js_static_priority_sort",
+      "verification_command": "python -B tests/validate_sort.py",
+      "success_criteria": [
+        "the implementation compares task priority",
+        "the input array is copied before sorting",
+        "createdAt is not used for ordering"
+      ],
+      "required_changed_paths": [
+        "tasks.js"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "javascript",
+        "static-validation",
+        "mutation-avoidance"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "static validation",
+          "immutable sort pattern"
+        ]
+      }
+    },
+    {
+      "id": "js-static-visible-items-filter",
+      "goal": "Fix visibleItems so it filters out hidden or archived items without relying on a deleted flag. Do not edit tests.",
+      "workspace_root": "fixtures/js_static_visible_items",
+      "verification_command": "python -B tests/validate_items.py",
+      "success_criteria": [
+        "hidden items are excluded",
+        "archived items are excluded",
+        "deleted is not used as the visibility rule"
+      ],
+      "required_changed_paths": [
+        "items.js"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "javascript",
+        "static-validation",
+        "predicate-repair"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "predicate logic",
+          "requirement alignment"
+        ]
+      }
+    },
+    {
+      "id": "ts-static-user-display-fallback",
+      "goal": "Fix displayUser so it prefers nickname when present, falls back to name, and includes the user's email address. Do not edit tests.",
+      "workspace_root": "fixtures/ts_static_user_display",
+      "verification_command": "python -B tests/validate_user.py",
+      "success_criteria": [
+        "nickname remains optional on User",
+        "displayUser uses nickname with a fallback to name",
+        "displayUser includes email"
+      ],
+      "required_changed_paths": [
+        "src/user.ts"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "typescript",
+        "static-validation",
+        "optional-field"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "type-shape reasoning",
+          "fallback logic"
+        ]
+      }
+    },
+    {
+      "id": "ts-static-route-builder-encoding",
+      "goal": "Fix buildUserPath so it URL-encodes the user id and appends an encoded tab query only when tab is provided. Do not edit tests.",
+      "workspace_root": "fixtures/ts_static_route_builder",
+      "verification_command": "python -B tests/validate_routes.py",
+      "success_criteria": [
+        "user ids are encoded",
+        "tabs are encoded",
+        "the tab query is optional"
+      ],
+      "required_changed_paths": [
+        "src/routes.ts"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "typescript",
+        "static-validation",
+        "url-encoding"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "conditional rendering",
+          "encoding"
+        ]
+      }
+    },
+    {
+      "id": "py-markdown-links-extraction",
+      "goal": "Fix extract_links so it extracts only markdown link targets in order and ignores plain URLs. Do not edit tests.",
+      "workspace_root": "fixtures/py_markdown_links",
+      "verification_command": "python -B -m unittest discover -s tests -v",
+      "success_criteria": [
+        "markdown link targets are returned in order",
+        "plain URLs are ignored",
+        "relative markdown links are included"
+      ],
+      "required_changed_paths": [
+        "src/*.py"
+      ],
+      "forbidden_changed_paths": [
+        "tests/*"
+      ],
+      "tags": [
+        "python",
+        "parsing",
+        "regex"
+      ],
+      "metadata": {
+        "initial_failure_expected": true,
+        "capability_focus": [
+          "text parsing",
+          "syntax-specific extraction"
+        ]
+      }
+    }
+  ]
+}

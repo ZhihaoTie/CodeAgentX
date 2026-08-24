@@ -1,0 +1,39 @@
+{
+  "defaults": {
+    "workspace_root": "..",
+    "permission_mode": "auto",
+    "enable_runtime_planning": true,
+    "enable_context_ranking": true,
+    "context_ranking_limit": 6,
+    "enable_task_constraints": true,
+    "auto_rollback_on_verification_failure": true,
+    "enable_patch_policy": true,
+    "patch_policy_max_changed_files": 20,
+    "patch_policy_max_total_changed_lines": 1200,
+    "enable_failure_reflection": true,
+    "max_reflection_retries": 1,
+    "enable_retry_strategy_matrix": true,
+    "enable_tool_planning_guidance": true,
+    "verification_sandbox": "local",
+    "enable_sandbox_artifacts": true,
+    "sandbox_snapshot_max_files": 2000,
+    "sandbox_snapshot_max_recorded_files": 100,
+    "docker_sandbox_image": "python:3.12-slim",
+    "docker_sandbox_network": "none",
+    "docker_sandbox_memory": "1g",
+    "docker_sandbox_cpus": "2",
+    "verification_command": "python -B -m unittest discover -s tests -v",
+    "verification_timeout_seconds": 120
+  },
+  "tasks": [
+    {
+      "id": "repo-smoke-mock",
+      "goal": "Inspect the repository and finish with a concise verification summary.",
+      "success_criteria": [
+        "Agent reaches a final response",
+        "Repository unit tests pass"
+      ],
+      "tags": ["smoke", "offline"]
+    }
+  ]
+}

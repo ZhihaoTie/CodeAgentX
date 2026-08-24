@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+codeagentx:
+  runtime:
+    base-url: http://127.0.0.1:8765
+    poll-delay-ms: ${CODEAGENTX_RUNTIME_POLL_DELAY_MS:5000}
+    run-timeout-ms: ${CODEAGENTX_RUNTIME_RUN_TIMEOUT_MS:1800000}
+  workspace:
+    root: ${CODEAGENTX_WORKSPACE_ROOT:../.codeagentx/control-plane/workspaces}
+  publisher:
+    mode: ${CODEAGENTX_PUBLISHER_MODE:noop}
+  github:
+    api-base-url: ${CODEAGENTX_GITHUB_API_BASE_URL:https://api.github.com}
+    token: ${CODEAGENTX_GITHUB_TOKEN:}
+    repository: ${CODEAGENTX_GITHUB_REPOSITORY:}
+    base-branch: ${CODEAGENTX_GITHUB_BASE_BRANCH:main}
+    head-branch-prefix: ${CODEAGENTX_GITHUB_HEAD_BRANCH_PREFIX:codeagentx/run-}
+    remote-name: ${CODEAGENTX_GITHUB_REMOTE_NAME:origin}
+    webhook-secret: ${CODEAGENTX_GITHUB_WEBHOOK_SECRET:}
+
+spring:
+  datasource:
+    url: ${CODEAGENTX_DB_URL:jdbc:postgresql://localhost:5432/codeagentx}
+    username: ${CODEAGENTX_DB_USERNAME:codeagentx}
+    password: ${CODEAGENTX_DB_PASSWORD:codeagentx}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false

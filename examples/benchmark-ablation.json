@@ -1,0 +1,77 @@
+{
+  "defaults": {
+    "workspace_root": "..",
+    "permission_mode": "auto",
+    "enable_runtime_planning": true,
+    "enable_context_ranking": true,
+    "context_ranking_limit": 6,
+    "enable_task_constraints": true,
+    "auto_rollback_on_verification_failure": true,
+    "enable_patch_policy": true,
+    "patch_policy_max_changed_files": 20,
+    "patch_policy_max_total_changed_lines": 1200,
+    "enable_failure_reflection": true,
+    "max_reflection_retries": 1,
+    "enable_retry_strategy_matrix": true,
+    "enable_tool_planning_guidance": true,
+    "verification_sandbox": "local",
+    "enable_sandbox_artifacts": true,
+    "sandbox_snapshot_max_files": 2000,
+    "sandbox_snapshot_max_recorded_files": 100,
+    "verification_command": "python -B -m unittest discover -s tests -v",
+    "verification_timeout_seconds": 120
+  },
+  "ablation_variants": [
+    {
+      "name": "baseline",
+      "description": "All configured runtime, reflection, ranking, strategy and guidance modules enabled.",
+      "overrides": {}
+    },
+    {
+      "name": "no_runtime_planning",
+      "description": "Disable runtime task plan lifecycle tracking.",
+      "overrides": {
+        "enable_runtime_planning": false
+      }
+    },
+    {
+      "name": "no_context_ranking",
+      "description": "Disable ranked context injection before reflection retry.",
+      "overrides": {
+        "enable_context_ranking": false
+      }
+    },
+    {
+      "name": "no_retry_strategy_matrix",
+      "description": "Keep bounded retry but remove strategy-specific retry plans.",
+      "overrides": {
+        "enable_retry_strategy_matrix": false
+      }
+    },
+    {
+      "name": "no_tool_planning_guidance",
+      "description": "Keep retry strategy prompts but disable runtime tool guidance.",
+      "overrides": {
+        "enable_tool_planning_guidance": false
+      }
+    },
+    {
+      "name": "no_task_constraints",
+      "description": "Disable deterministic task boundary checks.",
+      "overrides": {
+        "enable_task_constraints": false
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "id": "repo-smoke-ablation",
+      "goal": "Inspect the repository and finish with a concise verification summary.",
+      "success_criteria": [
+        "Agent reaches a final response",
+        "Repository unit tests pass"
+      ],
+      "tags": ["smoke", "offline", "ablation"]
+    }
+  ]
+}
