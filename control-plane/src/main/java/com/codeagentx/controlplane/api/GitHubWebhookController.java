@@ -8,6 +8,7 @@ import com.codeagentx.controlplane.github.GitHubWorkflowRunWebhook;
 import com.codeagentx.controlplane.workflow.RunWorkflowService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,15 +26,17 @@ public class GitHubWebhookController {
     private final RunWorkflowService workflowService;
     private final ObjectMapper objectMapper;
     private final GitHubWebhookSignatureVerifier signatureVerifier;
-
+    private final String defaultVerificationCommand;
     public GitHubWebhookController(
         RunWorkflowService workflowService,
         ObjectMapper objectMapper,
-        GitHubWebhookSignatureVerifier signatureVerifier
+        GitHubWebhookSignatureVerifier signatureVerifier,
+        @Value("${codeagentx.github.default-verification-command:}") String defaultVerificationCommand
     ) {
         this.workflowService = workflowService;
         this.objectMapper = objectMapper;
         this.signatureVerifier = signatureVerifier;
+        this.defaultVerificationCommand = blankToNull(defaultVerificationCommand);
     }
 
     @PostMapping("/github")
@@ -82,9 +85,13 @@ public class GitHubWebhookController {
             issueWebhook.getRepositoryFullName(),
             issueWebhook.getBaseBranch(),
             null,
-            null
+            defaultVerificationCommand
         ));
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(run);
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.trim().isEmpty() ? null : value.trim();
     }
 
     private Map<String, Object> parsePayload(String rawBody) {

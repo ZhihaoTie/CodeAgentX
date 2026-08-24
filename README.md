@@ -153,6 +153,12 @@ Submit the real GitHub target repository through the REST task path after starti
 py -3.13 -B demos/run_target_repo_rest_smoke.py
 ```
 
+Submit the same target repository through the GitHub issue webhook path:
+
+```powershell
+py -3.13 -B demos/run_target_repo_issue_webhook_smoke.py
+```
+
 ## Important endpoints
 
 ```text

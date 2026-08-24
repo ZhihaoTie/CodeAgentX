@@ -247,7 +247,7 @@ Repository port with JPA-backed implementation
 Codex-like review decisions: APPROVE / REQUEST_CHANGES / REJECT / AUTHORIZE_PR; REQUEST_CHANGES now drives a REVISING runtime pass and returns to NEEDS_REVIEW after revised verification succeeds
 Local PostgreSQL Docker Compose service
 Task idempotency key for duplicate submission / webhook replay protection
-Initial GitHub Issue webhook receiver
+GitHub Issue webhook receiver with repository metadata, idempotency key, and configurable default verification command
 Bounded async worker for runtime submission
 Scheduled runtime poller for RUNNING -> NEEDS_REVIEW / FAILED status writeback
 Run timeout handling for stuck runtime executions
@@ -261,6 +261,7 @@ Smoke Spring profile: local demos can run with an in-memory H2 database, noop pu
 Operational health endpoint: `/api/health` reports database connectivity, Python runtime reachability, publisher mode, workspace root, and whether GitHub webhook signature verification is required
 Configuration preflight endpoint: `/api/config/preflight` reports whether real GitHub publishing is configured without exposing token values
 Target repository REST smoke script: `demos/run_target_repo_rest_smoke.py` submits `https://github.com/ZhihaoTie/CodeAgent.git` through the real task intake path
+Target repository issue webhook smoke script: `demos/run_target_repo_issue_webhook_smoke.py` submits the same target through `/api/webhooks/github` with GitHub-style `issues` headers and payload
 Run summary endpoint: `/api/runs/summary` reports total runs, counts by status, and the 10 most recently updated runs for lightweight dashboard/readiness views
 Run cancellation endpoint: `/api/runs/{runId}/cancel` marks non-terminal runs as `CANCELLED`, records a cancellation event, and avoids submitting already-cancelled queued runs to the runtime
 Run timeline endpoint: `/api/runs/{runId}/timeline` combines persisted run events and review decisions into a lightweight audit trail

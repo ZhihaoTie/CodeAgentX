@@ -19,6 +19,7 @@ codeagentx:
     remote-name: ${CODEAGENTX_GITHUB_REMOTE_NAME:origin}
     webhook-secret: ${CODEAGENTX_GITHUB_WEBHOOK_SECRET:}
 
+    default-verification-command: ${CODEAGENTX_GITHUB_DEFAULT_VERIFICATION_COMMAND:}
 spring:
   datasource:
     url: ${CODEAGENTX_DB_URL:jdbc:postgresql://localhost:5432/codeagentx}
