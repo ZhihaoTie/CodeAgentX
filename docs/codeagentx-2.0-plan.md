@@ -244,7 +244,7 @@ PostgreSQL/JPA persistence model
 Run event model and live single-node SSE endpoint
 Control-plane RuntimeClient for Python execution API
 Repository port with JPA-backed implementation
-Codex-like review decisions: APPROVE / REQUEST_CHANGES / REJECT / AUTHORIZE_PR
+Codex-like review decisions: APPROVE / REQUEST_CHANGES / REJECT / AUTHORIZE_PR; REQUEST_CHANGES now drives a REVISING runtime pass and returns to NEEDS_REVIEW after revised verification succeeds
 Local PostgreSQL Docker Compose service
 Task idempotency key for duplicate submission / webhook replay protection
 Initial GitHub Issue webhook receiver
@@ -282,7 +282,7 @@ Current local validation:
 Python runtime service tests pass.
 Python full unit test suite passes: 278 tests with py -3.13 -B -m unittest discover -s tests -v.
 Spring Boot control-plane compiles and passes workflow + JPA repository + GitHub webhook parser tests with Maven on JDK 17.
-Latest control-plane validation: 44 tests passed with `mvn test`.
+Latest control-plane validation: Maven test suite passed with `mvn test`; workflow tests cover REQUEST_CHANGES -> REVISING -> NEEDS_REVIEW.
 Latest local smoke validation: `mvn spring-boot:run "-Dspring-boot.run.profiles=smoke"` plus `py -3.13 -B demos/run_control_plane_smoke.py` reached `SUCCEEDED`.
 ```
 

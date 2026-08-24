@@ -219,7 +219,12 @@ public class RunWorkflowService {
         if (run.getStatus() == RunStatus.CANCELLED) {
             return;
         }
-        run.setStatus(RunStatus.QUEUED);
+        boolean revisionRun = run.getStatus() == RunStatus.CHANGES_REQUESTED || run.getStatus() == RunStatus.REVISING;
+        if (revisionRun) {
+            run.setStatus(RunStatus.REVISING);
+        } else {
+            run.setStatus(RunStatus.QUEUED);
+        }
         try {
             RuntimeRunRequest request = new RuntimeRunRequest(taskText);
             TaskRecord task = repository.getTask(run.getTaskId());
@@ -235,7 +240,7 @@ public class RunWorkflowService {
             if (response != null) {
                 run.setRuntimeRunId(response.getRunId());
             }
-            run.setStatus(RunStatus.RUNNING);
+            run.setStatus(revisionRun ? RunStatus.REVISING : RunStatus.RUNNING);
         } catch (Exception exc) {
             run.setStatus(RunStatus.FAILED);
             run.setFailureReason(exc.getClass().getSimpleName() + ": " + exc.getMessage());
@@ -271,17 +276,19 @@ public class RunWorkflowService {
             run.setStatus(RunStatus.FAILED);
             run.setFailureReason(response.getError());
         } else if ("RUNNING".equals(response.getStatus())) {
-            run.setStatus(RunStatus.RUNNING);
+            run.setStatus(run.getStatus() == RunStatus.REVISING ? RunStatus.REVISING : RunStatus.RUNNING);
         }
         return saveAndPublish(run);
     }
 
     public int refreshRunningRuns() {
         int refreshed = 0;
-        for (RunRecord run : repository.listRunsByStatus(RunStatus.RUNNING)) {
-            if (run.getRuntimeRunId() != null) {
-                refreshFromRuntime(run.getRunId());
-                refreshed++;
+        for (RunStatus status : new RunStatus[] {RunStatus.RUNNING, RunStatus.REVISING}) {
+            for (RunRecord run : repository.listRunsByStatus(status)) {
+                if (run.getRuntimeRunId() != null) {
+                    refreshFromRuntime(run.getRunId());
+                    refreshed++;
+                }
             }
         }
         return refreshed;
@@ -290,12 +297,14 @@ public class RunWorkflowService {
     public int failTimedOutRuns() {
         int failed = 0;
         Instant now = Instant.now();
-        for (RunRecord run : repository.listRunsByStatus(RunStatus.RUNNING)) {
-            if (run.isTimedOut(now, runTimeout)) {
-                run.setStatus(RunStatus.FAILED);
-                run.setFailureReason("Run timed out after " + runTimeout.toMillis() + " ms");
-                saveAndPublish(run);
-                failed++;
+        for (RunStatus status : new RunStatus[] {RunStatus.RUNNING, RunStatus.REVISING}) {
+            for (RunRecord run : repository.listRunsByStatus(status)) {
+                if (run.isTimedOut(now, runTimeout)) {
+                    run.setStatus(RunStatus.FAILED);
+                    run.setFailureReason("Run timed out after " + runTimeout.toMillis() + " ms");
+                    saveAndPublish(run);
+                    failed++;
+                }
             }
         }
         return failed;

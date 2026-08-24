@@ -179,7 +179,7 @@ class RunWorkflowServiceTest {
             "Add a boundary test."
         );
 
-        assertThat(reviewed.getStatus()).isEqualTo(RunStatus.RUNNING);
+        assertThat(reviewed.getStatus()).isEqualTo(RunStatus.REVISING);
         assertThat(reviewed.getReviews()).hasSize(1);
         assertThat(reviewed.getEvents())
             .extracting("eventType")
@@ -188,6 +188,31 @@ class RunWorkflowServiceTest {
         assertThat(runtimeClient.submittedTasks.get(1)).contains("Add a boundary test.");
     }
 
+    @Test
+    void refreshRunningRunsPollsRevisingRunBackToReview() {
+        FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
+        RunWorkflowService service = new RunWorkflowService(
+            new InMemoryRunRepository(),
+            runtimeClient
+        );
+        RunRecord run = service.createTaskAndRun("rest", "Fix bug", "Details");
+        service.reviewRun(
+            run.getRunId(),
+            ReviewDecision.REQUEST_CHANGES,
+            "Add a boundary test."
+        );
+        runtimeClient.nextStatus = "SUCCEEDED";
+        runtimeClient.nextFinalText = "Revised patch ready.";
+        runtimeClient.nextPatchDiff = "diff --git a/a.py b/a.py";
+
+        int refreshed = service.refreshRunningRuns();
+        RunRecord loaded = service.getRun(run.getRunId());
+
+        assertThat(refreshed).isEqualTo(1);
+        assertThat(loaded.getStatus()).isEqualTo(RunStatus.NEEDS_REVIEW);
+        assertThat(loaded.getFinalText()).isEqualTo("Revised patch ready.");
+        assertThat(loaded.getPatchArtifact().getDiffText()).contains("diff --git");
+    }
     @Test
     void authorizePrPublishesPullRequestOnlyAfterReviewDecision() {
         FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
