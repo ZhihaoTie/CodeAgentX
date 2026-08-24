@@ -115,6 +115,12 @@ Run the stuck-runtime timeout smoke with a short control-plane timeout:
 py -3.13 -B demos/run_timeout_smoke.py
 ```
 
+Run the worker concurrency-limit smoke with the control-plane worker size set to 1:
+
+```powershell
+py -3.13 -B demos/run_concurrency_limit_smoke.py
+```
+
 The smoke script submits a REST task for the target repository and waits until the run reaches a reviewable or terminal state.
 
 Expected reviewable state:
@@ -197,3 +203,4 @@ py -3.13 -B -m unittest discover -s tests -v
 Runtime-private artifacts such as `.codeagentx/` must not appear as target repository code changes.
 
 The control plane collects patch evidence from the prepared Git workspace and filters private runtime directories from `git status --porcelain` before exposing changed files in run artifacts.
+

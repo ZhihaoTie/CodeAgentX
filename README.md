@@ -171,6 +171,12 @@ Run the stuck-runtime timeout smoke with a short control-plane timeout:
 py -3.13 -B demos/run_timeout_smoke.py
 ```
 
+Run the worker concurrency-limit smoke with the control-plane worker size set to 1:
+
+```powershell
+py -3.13 -B demos/run_concurrency_limit_smoke.py
+```
+
 ## Important endpoints
 
 ```text
@@ -246,3 +252,4 @@ GitHub Issue
 ```
 
 This turns CodeAgent-X from a standalone agent runtime into a software engineering agent platform that can be embedded into a real development workflow.
+

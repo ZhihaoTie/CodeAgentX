@@ -1,4 +1,8 @@
 codeagentx:
+  worker:
+    core-pool-size: ${CODEAGENTX_WORKER_CORE_POOL_SIZE:2}
+    max-pool-size: ${CODEAGENTX_WORKER_MAX_POOL_SIZE:2}
+    queue-capacity: ${CODEAGENTX_WORKER_QUEUE_CAPACITY:100}
   runtime:
     base-url: http://127.0.0.1:8765
     poll-delay-ms: 500
@@ -26,3 +30,4 @@ logging:
   level:
     org.hibernate.SQL: INFO
     org.hibernate.type.descriptor.sql.BasicBinder: INFO
+
