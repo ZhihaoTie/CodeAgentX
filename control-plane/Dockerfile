@@ -13,7 +13,8 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl git ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home --shell /bin/bash codeagentx \
+    && groupadd --gid 1000 codeagentx \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash codeagentx \
     && mkdir -p /workspaces \
     && chown -R codeagentx:codeagentx /app /workspaces
 

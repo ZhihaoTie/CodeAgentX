@@ -14,7 +14,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY codeagentx ./codeagentx
 
-RUN useradd --create-home --shell /bin/bash codeagentx \
+RUN groupadd --gid 1000 codeagentx \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash codeagentx \
     && mkdir -p /workspaces \
     && chown -R codeagentx:codeagentx /app /workspaces
 

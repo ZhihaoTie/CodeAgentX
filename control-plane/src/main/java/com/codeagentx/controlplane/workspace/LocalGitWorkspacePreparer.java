@@ -44,9 +44,12 @@ public class LocalGitWorkspacePreparer implements WorkspacePreparer {
             if (!Files.exists(runWorkspace)) {
                 runCommand(workspacesRoot, "git", "clone", task.getRepositoryUrl(), runWorkspace.toString());
             }
+            LocalGitSupport.makeWorkspaceWritable(runWorkspace);
+            LocalGitSupport.trustWorkspaceOrThrow(runWorkspace, "workspace preparation");
             if (task.getBaseBranch() != null) {
                 runCommand(runWorkspace, "git", "checkout", task.getBaseBranch());
             }
+            LocalGitSupport.makeWorkspaceWritable(runWorkspace);
             return new WorkspacePreparationResult(
                 runWorkspace.toString(),
                 "prepared git workspace"

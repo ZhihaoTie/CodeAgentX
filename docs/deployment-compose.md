@@ -38,9 +38,9 @@ For a disposable clean-server validation, keep every project-owned file under on
 
 ```text
 /data/fast/zhihao/
-├── codeagentx-deploy/      # git clone and docker-compose.yml
-├── codeagentx-data/        # PostgreSQL data when configured as a bind mount
-└── codeagentx-workspaces/  # cloned target repositories and runtime workspaces
+|-- codeagentx-deploy/      # git clone and docker-compose.yml
+|-- codeagentx-data/        # PostgreSQL data when configured as a bind mount
+`-- codeagentx-workspaces/  # cloned target repositories and runtime workspaces
 ```
 
 Clone the repository into `codeagentx-deploy`, then set these values in `codeagentx-deploy/.env`:
@@ -53,6 +53,15 @@ CODEAGENTX_WORKSPACES_VOLUME=/data/fast/zhihao/codeagentx-workspaces
 The default values still use Docker named volumes for local development. Absolute paths are recommended for a clean server when you want project data to be easy to inspect and remove.
 
 On Linux, the control-plane service also maps `host.docker.internal` to Docker's host gateway. This lets callback smoke tests post from the container back to a callback receiver running on the server host.
+
+The control-plane and runtime containers both run as the same `codeagentx` UID/GID (`1000:1000`) so a shared `/workspaces` bind mount can be used for clone, edit, test, patch branch, commit, and push operations. On a clean server, initialize the bind-mounted workspace path with:
+
+```bash
+sudo chown -R 1000:1000 /data/fast/zhihao/codeagentx-workspaces
+sudo chmod -R u+rwX,g+rwX /data/fast/zhihao/codeagentx-workspaces
+```
+
+The control plane also marks each prepared workspace as a Git `safe.directory` before local branch, commit, and push operations. This avoids Git's dubious-ownership protection blocking review-authorized PR publication while still trusting only the current run workspace instead of using a global wildcard.
 
 ## Local prebuilt override
 

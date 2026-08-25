@@ -4,9 +4,6 @@ import com.codeagentx.controlplane.domain.RunRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -34,7 +31,9 @@ public class LocalGitPatchPusher implements PatchPusher {
             return new PatchPushResult(null, "execution workspace is not a git repository");
         }
 
-        CommandResult push = runGit(
+        LocalGitSupport.trustWorkspaceOrThrow(workspace, "patch push");
+
+        LocalGitSupport.CommandResult push = LocalGitSupport.runGit(
             workspace,
             "git",
             "push",
@@ -45,33 +44,5 @@ public class LocalGitPatchPusher implements PatchPusher {
             throw new IllegalStateException("failed to push patch branch: " + push.output);
         }
         return new PatchPushResult(remoteName + "/" + run.getPatchBranch(), "pushed patch branch");
-    }
-
-    private CommandResult runGit(Path cwd, String... command) {
-        try {
-            ProcessBuilder builder = new ProcessBuilder(command);
-            builder.directory(cwd.toFile());
-            builder.redirectErrorStream(true);
-            Process process = builder.start();
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
-            process.getInputStream().transferTo(output);
-            int exitCode = process.waitFor();
-            return new CommandResult(exitCode, output.toString(StandardCharsets.UTF_8).trim());
-        } catch (IOException exc) {
-            return new CommandResult(1, exc.getMessage());
-        } catch (InterruptedException exc) {
-            Thread.currentThread().interrupt();
-            return new CommandResult(1, "interrupted");
-        }
-    }
-
-    private static class CommandResult {
-        private final int exitCode;
-        private final String output;
-
-        private CommandResult(int exitCode, String output) {
-            this.exitCode = exitCode;
-            this.output = output;
-        }
     }
 }
