@@ -340,6 +340,28 @@ class RunWorkflowServiceTest {
     }
 
     @Test
+    void recordCiStatusDoesNotReviveTerminalRun() {
+        InMemoryRunRepository repository = new InMemoryRunRepository();
+        FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
+        RunWorkflowService service = new RunWorkflowService(repository, runtimeClient);
+        RunRecord run = service.createTaskAndRun("rest", "Fix bug", "Details");
+        run.setPatchBranch("codeagentx/run-" + run.getRunId());
+        run.setStatus(RunStatus.FAILED);
+        run.setFailureReason("Runtime failed first");
+        repository.saveRun(run);
+
+        RunRecord ignored = service.recordCiStatus(
+            run.getPatchBranch(),
+            "completed",
+            "success",
+            "https://github.com/acme/repo/actions/runs/1"
+        );
+
+        assertThat(ignored.getStatus()).isEqualTo(RunStatus.FAILED);
+        assertThat(ignored.getFailureReason()).isEqualTo("Runtime failed first");
+        assertThat(ignored.getFinalText()).isNull();
+    }
+    @Test
     void failedRuntimeSubmissionMarksRunFailed() {
         FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
         runtimeClient.failSubmit = true;

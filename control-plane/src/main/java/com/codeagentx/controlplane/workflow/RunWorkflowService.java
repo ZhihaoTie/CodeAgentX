@@ -401,6 +401,10 @@ public class RunWorkflowService {
             return null;
         }
 
+        if (isTerminal(run.getStatus())) {
+            return run;
+        }
+
         if ("completed".equals(status)) {
             if ("success".equals(conclusion)) {
                 run.setStatus(RunStatus.SUCCEEDED);
