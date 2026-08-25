@@ -84,7 +84,7 @@ Implemented and validated:
 - Python runtime unit test suite: 278 tests passed locally.
 - Deterministic 3-minute runtime demo: `Task -> Plan -> Read -> Patch -> Test -> Failure -> Reflection -> Retry -> Success -> Report`.
 - Spring Boot control-plane slice with task/run workflow, review, webhook intake, generic REST adapter, optional result callbacks, CI writeback, artifact, timeline, request correlation, metrics, health, and config preflight.
-- Control-plane Maven validation: 58 tests passed on JDK 17.
+- Control-plane Maven validation: 62 tests passed on JDK 17.
 - Local benchmark framework with a completed suite-v0 ablation run: 20 local tasks x 9 variants = 180 task runs, with each configured variant resolving 20/20 local fixture tasks in the latest run.
 - SWE-bench adapter and official evaluator integration path.
 
@@ -258,7 +258,7 @@ docker compose up -d --build
 python demos/run_compose_smoke.py
 ```
 
-See [docs/deployment-compose.md](docs/deployment-compose.md) for the topology, trust boundaries, environment settings, local prebuilt override, and operational validation checklist. See [docs/deployment-validation.md](docs/deployment-validation.md) for the current auditable local Compose validation record.
+See [docs/deployment-compose.md](docs/deployment-compose.md) for the topology, trust boundaries, environment settings, local prebuilt override, and operational validation checklist. See [docs/deployment-validation.md](docs/deployment-validation.md) for the local Compose validation record and [docs/clean-server-deployment-validation.md](docs/clean-server-deployment-validation.md) for the clean Linux server validation record.
 
 ## GitHub publishing configuration
 
@@ -298,6 +298,7 @@ tests/                         Python unit tests
 docs/codeagentx-2.0-plan.md    public 2.0 project plan
 docs/e2e-github-target.md      real target-repository E2E runbook
 docs/deployment-validation.md  current Compose deployment validation record
+docs/clean-server-deployment-validation.md clean Linux server deployment validation record
 docs/public-release-checklist.md public release gate checklist
 ```
 

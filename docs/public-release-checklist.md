@@ -128,6 +128,14 @@ preflight ready or needs_configuration, depending on local secrets
 Generic REST task reaches NEEDS_REVIEW with callback delivery when callbacks are enabled
 ```
 
+Clean server validation is tracked separately in:
+
+```text
+docs/clean-server-deployment-validation.md
+```
+
+For disposable Linux validation, keep deploy files, PostgreSQL data, and runtime workspaces under one removable root such as `/data/fast/zhihao`.
+
 ## 6. Claim discipline
 
 Public materials may claim:

@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${CODEAGENTX_DB_USERNAME:-codeagentx}
       POSTGRES_PASSWORD: ${CODEAGENTX_DB_PASSWORD:-codeagentx}
     volumes:
-      - codeagentx-postgres-data:/var/lib/postgresql/data
+      - ${CODEAGENTX_POSTGRES_DATA_VOLUME:-codeagentx-postgres-data}:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -31,7 +31,7 @@ services:
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       DEEPSEEK_CHAT_PATH: ${DEEPSEEK_CHAT_PATH:-/chat/completions}
     volumes:
-      - codeagentx-workspaces:/workspaces
+      - ${CODEAGENTX_WORKSPACES_VOLUME:-codeagentx-workspaces}:/workspaces
     expose:
       - "8765"
     healthcheck:
@@ -77,9 +77,11 @@ services:
       CODEAGENTX_GITHUB_WEBHOOK_SECRET: ${CODEAGENTX_GITHUB_WEBHOOK_SECRET:-}
       CODEAGENTX_GITHUB_DEFAULT_VERIFICATION_COMMAND: ${CODEAGENTX_GITHUB_DEFAULT_VERIFICATION_COMMAND:-python -m unittest discover -s tests -v}
     volumes:
-      - codeagentx-workspaces:/workspaces
+      - ${CODEAGENTX_WORKSPACES_VOLUME:-codeagentx-workspaces}:/workspaces
     ports:
       - "${CODEAGENTX_CONTROL_PLANE_PORT:-8080}:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/api/health >/dev/null"]
       interval: 10s

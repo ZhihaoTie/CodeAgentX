@@ -32,6 +32,28 @@ docker compose up -d --build
 python demos/run_compose_smoke.py
 ```
 
+## Clean server layout
+
+For a disposable clean-server validation, keep every project-owned file under one removable directory:
+
+```text
+/data/fast/zhihao/
+├── codeagentx-deploy/      # git clone and docker-compose.yml
+├── codeagentx-data/        # PostgreSQL data when configured as a bind mount
+└── codeagentx-workspaces/  # cloned target repositories and runtime workspaces
+```
+
+Clone the repository into `codeagentx-deploy`, then set these values in `codeagentx-deploy/.env`:
+
+```text
+CODEAGENTX_POSTGRES_DATA_VOLUME=/data/fast/zhihao/codeagentx-data/postgres
+CODEAGENTX_WORKSPACES_VOLUME=/data/fast/zhihao/codeagentx-workspaces
+```
+
+The default values still use Docker named volumes for local development. Absolute paths are recommended for a clean server when you want project data to be easy to inspect and remove.
+
+On Linux, the control-plane service also maps `host.docker.internal` to Docker's host gateway. This lets callback smoke tests post from the container back to a callback receiver running on the server host.
+
 ## Local prebuilt override
 
 When Docker Hub or Maven builder layers are slow on a development machine, you can validate the same three-service runtime shape with a locally built control-plane jar:
