@@ -298,6 +298,7 @@ tests/                         Python unit tests
 docs/codeagentx-2.0-plan.md    public 2.0 project plan
 docs/e2e-github-target.md      real target-repository E2E runbook
 docs/deployment-validation.md  current Compose deployment validation record
+docs/public-release-checklist.md public release gate checklist
 ```
 
 Private runtime outputs, local reports, API keys, benchmark artifacts, and temporary workspaces are excluded through `.gitignore`.
