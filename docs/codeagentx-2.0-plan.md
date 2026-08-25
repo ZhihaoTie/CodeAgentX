@@ -219,7 +219,7 @@ Agent Runtime
  -> Observable, auditable, recoverable platform
 ```
 
-The main remaining V1 gap is not another dashboard endpoint. It is connecting the already-built boundaries to a real GitHub repository flow:
+The original V1 gap was connecting the already-built boundaries to a real GitHub repository flow:
 
 ```text
 real GitHub Issue webhook
@@ -230,7 +230,7 @@ real GitHub Issue webhook
  -> GitHub Actions workflow_run writeback
 ```
 
-After that, V2 should focus on fault-injection reliability evidence rather than broad new feature expansion.
+That real target-repository vertical slice has now been validated once against `https://github.com/ZhihaoTie/CodeAgent.git`, producing a pull request, GitHub Actions CI run, and final platform `SUCCEEDED` status. The next work should therefore focus on two things: preserving reproducible evidence for V1, and expanding V2 fault-injection reliability evidence rather than broad new feature expansion.
 
 ## Current V1 Progress
 
@@ -372,6 +372,24 @@ Deployment documentation
 ```
 
 V3 should not block V1. The project should first prove the real business loop, then add platform hardening.
+
+
+## Execution Evidence Matrix
+
+The project should be read through a small evidence matrix rather than a feature list:
+
+| Evidence area | What it proves | Current artifact |
+| --- | --- | --- |
+| Runtime capability | The Python agent can inspect, edit, verify, reflect, retry, and report inside a repository | Python unit tests, deterministic 3-minute demo, suite-v0 harness |
+| Business vertical slice | A real development task can enter through GitHub/REST and return as PR/CI status | `docs/e2e-github-target.md`, target repo PR #1, CI writeback record |
+| Review control | Human feedback can approve, reject, request changes, or authorize PR publication | `APPROVE`, `REQUEST_CHANGES`, `REJECT`, `AUTHORIZE_PR` workflow |
+| Idempotency | Duplicate delivery does not create duplicate work | `demos/run_duplicate_issue_webhook_smoke.py` |
+| Timeout recovery | A stuck runtime does not leave a run hanging forever | `demos/run_timeout_smoke.py` |
+| Concurrency control | Runtime submissions are bounded by configured worker limits | `demos/run_concurrency_limit_smoke.py` |
+| Queued-run recovery | Queued runs can be recovered after crash/restart | startup recovery plus `POST /api/runs/recover-queued` |
+| Auditability | Runs expose timeline, events, patch artifact, status, and failure reason | `/api/runs/{id}/timeline`, `/events`, `/artifact`, `/summary` |
+
+This keeps the project grounded: every new capability should either advance the business loop, improve reliability, or make evidence easier to audit.
 
 ## Evidence Strategy
 

@@ -177,6 +177,24 @@ Run the worker concurrency-limit smoke with the control-plane worker size set to
 py -3.13 -B demos/run_concurrency_limit_smoke.py
 ```
 
+
+## Evidence checklist
+
+| Area | Command or artifact |
+| --- | --- |
+| Python runtime tests | `py -3.13 -B -m unittest discover -s tests -v` |
+| Runtime demo | `py -3.13 -B demos/run_3min_demo.py` |
+| Control-plane tests | `cd control-plane; mvn test` |
+| Local control-plane smoke | `py -3.13 -B demos/run_control_plane_smoke.py` |
+| Target REST smoke | `py -3.13 -B demos/run_target_repo_rest_smoke.py` |
+| Target GitHub issue webhook smoke | `py -3.13 -B demos/run_target_repo_issue_webhook_smoke.py` |
+| Duplicate webhook idempotency | `py -3.13 -B demos/run_duplicate_issue_webhook_smoke.py` |
+| Stuck runtime timeout | `py -3.13 -B demos/run_timeout_smoke.py` |
+| Worker concurrency limit | `py -3.13 -B demos/run_concurrency_limit_smoke.py` |
+| Real target-repository E2E record | `docs/e2e-github-target.md` |
+
+The reliability smokes use fake runtimes where appropriate. This makes the failure modes deterministic and locally reproducible instead of depending on live external failures.
+
 ## Important endpoints
 
 ```text
