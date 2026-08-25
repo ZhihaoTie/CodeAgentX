@@ -110,6 +110,12 @@ Replay the same GitHub issue delivery twice to verify webhook idempotency:
 py -3.13 -B demos/run_duplicate_issue_webhook_smoke.py
 ```
 
+Replay the same GitHub workflow_run delivery twice to verify CI writeback idempotency:
+
+```powershell
+py -3.13 -B demos/run_duplicate_workflow_run_smoke.py
+```
+
 Run the stuck-runtime timeout smoke with a short control-plane timeout:
 
 ```powershell

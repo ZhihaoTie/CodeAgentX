@@ -314,6 +314,32 @@ class RunWorkflowServiceTest {
     }
 
     @Test
+    void recordCiStatusIsIdempotentForDuplicateWorkflowRun() {
+        InMemoryRunRepository repository = new InMemoryRunRepository();
+        FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
+        RunWorkflowService service = new RunWorkflowService(repository, runtimeClient);
+        RunRecord run = service.createTaskAndRun("rest", "Fix bug", "Details");
+        run.setPatchBranch("codeagentx/run-" + run.getRunId());
+        repository.saveRun(run);
+
+        service.recordCiStatus(
+            run.getPatchBranch(),
+            "completed",
+            "success",
+            "https://github.com/acme/repo/actions/runs/1"
+        );
+        RunRecord duplicate = service.recordCiStatus(
+            run.getPatchBranch(),
+            "completed",
+            "success",
+            "https://github.com/acme/repo/actions/runs/1"
+        );
+
+        assertThat(duplicate.getStatus()).isEqualTo(RunStatus.SUCCEEDED);
+        assertThat(duplicate.getFinalText().split("CI succeeded:", -1)).hasSize(2);
+    }
+
+    @Test
     void failedRuntimeSubmissionMarksRunFailed() {
         FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
         runtimeClient.failSubmit = true;

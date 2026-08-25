@@ -165,6 +165,12 @@ Replay the same GitHub issue delivery twice to verify webhook idempotency:
 py -3.13 -B demos/run_duplicate_issue_webhook_smoke.py
 ```
 
+Replay the same GitHub workflow_run delivery twice to verify CI writeback idempotency:
+
+```powershell
+py -3.13 -B demos/run_duplicate_workflow_run_smoke.py
+```
+
 Run the stuck-runtime timeout smoke with a short control-plane timeout:
 
 ```powershell
@@ -203,6 +209,7 @@ py -3.13 -B demos/run_concurrency_limit_smoke.py
 | Target REST smoke | `py -3.13 -B demos/run_target_repo_rest_smoke.py` |
 | Target GitHub issue webhook smoke | `py -3.13 -B demos/run_target_repo_issue_webhook_smoke.py` |
 | Duplicate webhook idempotency | `py -3.13 -B demos/run_duplicate_issue_webhook_smoke.py` |
+| Duplicate CI webhook idempotency | `py -3.13 -B demos/run_duplicate_workflow_run_smoke.py` |
 | Stuck runtime timeout | `py -3.13 -B demos/run_timeout_smoke.py` |
 | Runtime submit retry | `py -3.13 -B demos/run_runtime_submit_retry_smoke.py` |
 | Worker concurrency limit | `py -3.13 -B demos/run_concurrency_limit_smoke.py` |

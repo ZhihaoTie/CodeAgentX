@@ -404,15 +404,15 @@ public class RunWorkflowService {
         if ("completed".equals(status)) {
             if ("success".equals(conclusion)) {
                 run.setStatus(RunStatus.SUCCEEDED);
-                run.setFinalText(appendLine(run.getFinalText(), "CI succeeded: " + nullToEmpty(url)));
+                run.setFinalText(appendLineIfMissing(run.getFinalText(), "CI succeeded: " + nullToEmpty(url)));
             } else {
                 run.setStatus(RunStatus.FAILED);
                 run.setFailureReason("CI failed with conclusion: " + nullToEmpty(conclusion));
-                run.setFinalText(appendLine(run.getFinalText(), "CI failed: " + nullToEmpty(url)));
+                run.setFinalText(appendLineIfMissing(run.getFinalText(), "CI failed: " + nullToEmpty(url)));
             }
         } else {
             run.setStatus(RunStatus.CI_RUNNING);
-            run.setFinalText(appendLine(run.getFinalText(), "CI status: " + nullToEmpty(status) + " " + nullToEmpty(url)));
+            run.setFinalText(appendLineIfMissing(run.getFinalText(), "CI status: " + nullToEmpty(status) + " " + nullToEmpty(url)));
         }
         return saveAndPublish(run);
     }
@@ -457,6 +457,20 @@ public class RunWorkflowService {
         return text.toString();
     }
 
+    private String appendLineIfMissing(String value, String line) {
+        if (line == null || line.trim().isEmpty()) {
+            return value;
+        }
+        if (value != null) {
+            String[] lines = value.split("\\R");
+            for (String existing : lines) {
+                if (line.equals(existing)) {
+                    return value;
+                }
+            }
+        }
+        return appendLine(value, line);
+    }
     private String appendLine(String value, String line) {
         if (line == null || line.trim().isEmpty()) {
             return value;
