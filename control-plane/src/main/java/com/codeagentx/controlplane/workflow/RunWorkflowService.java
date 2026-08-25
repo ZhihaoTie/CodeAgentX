@@ -219,7 +219,7 @@ public class RunWorkflowService {
 
     private void requireReviewState(RunRecord run, RunStatus expectedStatus, ReviewDecision decision) {
         if (run.getStatus() != expectedStatus) {
-            throw new IllegalStateException(
+            throw new InvalidRunStateException(
                 "Review decision " + decision.name() + " requires run status " + expectedStatus.name()
                     + " but was " + run.getStatus().name()
             );

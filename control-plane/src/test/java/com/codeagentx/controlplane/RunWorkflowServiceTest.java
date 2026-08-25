@@ -17,6 +17,7 @@ import com.codeagentx.controlplane.workspace.PatchCommitResult;
 import com.codeagentx.controlplane.workspace.PatchCommitter;
 import com.codeagentx.controlplane.workspace.PatchPushResult;
 import com.codeagentx.controlplane.workspace.PatchPusher;
+import com.codeagentx.controlplane.workflow.InvalidRunStateException;
 import com.codeagentx.controlplane.workflow.RunWorkflowService;
 import org.junit.jupiter.api.Test;
 
@@ -282,7 +283,7 @@ class RunWorkflowServiceTest {
             public void call() {
                 service.reviewRun(run.getRunId(), ReviewDecision.AUTHORIZE_PR, "Too early.");
             }
-        }).isInstanceOf(IllegalStateException.class)
+        }).isInstanceOf(InvalidRunStateException.class)
             .hasMessageContaining("requires run status APPROVED");
     }
 

@@ -3,11 +3,13 @@ package com.codeagentx.controlplane.api;
 import com.codeagentx.controlplane.domain.RunRecord;
 import com.codeagentx.controlplane.domain.TaskExecutionSpec;
 import com.codeagentx.controlplane.events.RunEventStreamHub;
+import com.codeagentx.controlplane.workflow.InvalidRunStateException;
 import com.codeagentx.controlplane.workflow.RunWorkflowService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,6 +37,15 @@ public class RunController {
         this.artifactMapper = new RunArtifactMapper();
     }
 
+    @ExceptionHandler(InvalidRunStateException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidRunState(InvalidRunStateException exc) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.<String, Object>of(
+            "error",
+            "invalid_run_state",
+            "message",
+            exc.getMessage()
+        ));
+    }
     @PostMapping("/tasks")
     public ResponseEntity<RunRecord> createTask(@Valid @RequestBody CreateTaskRequest request) {
         RunRecord run = workflowService.createTaskAndRun(new TaskExecutionSpec(
