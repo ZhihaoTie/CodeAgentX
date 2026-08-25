@@ -57,6 +57,7 @@ $env:CODEAGENTX_PUBLISHER_MODE="github"
 $env:CODEAGENTX_GITHUB_TOKEN="..."
 $env:CODEAGENTX_GITHUB_BASE_BRANCH="main"
 $env:CODEAGENTX_GITHUB_REMOTE_NAME="origin"
+$env:CODEAGENTX_GITHUB_DEFAULT_VERIFICATION_COMMAND="py -3.13 -B -m unittest discover -s tests -v"
 ```
 
 Optionally configure:
@@ -116,6 +117,12 @@ py -3.13 -B demos/run_timeout_smoke.py
 ```
 
 Run the worker concurrency-limit smoke with the control-plane worker size set to 1:
+
+```powershell
+$env:CODEAGENTX_WORKER_CORE_POOL_SIZE="1"
+$env:CODEAGENTX_WORKER_MAX_POOL_SIZE="1"
+$env:CODEAGENTX_WORKER_QUEUE_CAPACITY="10"
+```
 
 ```powershell
 py -3.13 -B demos/run_concurrency_limit_smoke.py

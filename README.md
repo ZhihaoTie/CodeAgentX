@@ -174,6 +174,12 @@ py -3.13 -B demos/run_timeout_smoke.py
 Run the worker concurrency-limit smoke with the control-plane worker size set to 1:
 
 ```powershell
+$env:CODEAGENTX_WORKER_CORE_POOL_SIZE="1"
+$env:CODEAGENTX_WORKER_MAX_POOL_SIZE="1"
+$env:CODEAGENTX_WORKER_QUEUE_CAPACITY="10"
+```
+
+```powershell
 py -3.13 -B demos/run_concurrency_limit_smoke.py
 ```
 
