@@ -258,7 +258,7 @@ docker compose up -d --build
 python demos/run_compose_smoke.py
 ```
 
-See [docs/deployment-compose.md](docs/deployment-compose.md) for the topology, trust boundaries, environment settings, local prebuilt override, and operational validation checklist.
+See [docs/deployment-compose.md](docs/deployment-compose.md) for the topology, trust boundaries, environment settings, local prebuilt override, and operational validation checklist. See [docs/deployment-validation.md](docs/deployment-validation.md) for the current auditable local Compose validation record.
 
 ## GitHub publishing configuration
 
@@ -297,6 +297,7 @@ benchmarks/                    local benchmark specs and fixtures
 tests/                         Python unit tests
 docs/codeagentx-2.0-plan.md    public 2.0 project plan
 docs/e2e-github-target.md      real target-repository E2E runbook
+docs/deployment-validation.md  current Compose deployment validation record
 ```
 
 Private runtime outputs, local reports, API keys, benchmark artifacts, and temporary workspaces are excluded through `.gitignore`.

@@ -1,6 +1,6 @@
 # Docker Compose Deployment
 
-This is the production-like single-node deployment path for CodeAgent-X. It is intentionally small: Docker Compose starts the control plane, the Python runtime, PostgreSQL, and a shared workspace volume. It does not introduce Kubernetes, a message queue, or an external observability stack.
+This is the production-like single-node deployment path for CodeAgent-X. It is intentionally small: Docker Compose starts the control plane, the Python runtime, PostgreSQL, and a shared workspace volume. It does not introduce Kubernetes, a message queue, or an external observability stack. The current local validation record is maintained in [deployment-validation.md](deployment-validation.md).
 
 ## Topology
 
