@@ -272,7 +272,7 @@ Run summary endpoint: `/api/runs/summary` reports total runs, counts by status, 
 Run cancellation endpoint: `/api/runs/{runId}/cancel` marks non-terminal runs as `CANCELLED`, records a cancellation event, and avoids submitting already-cancelled queued runs to the runtime
 Run timeline endpoint: `/api/runs/{runId}/timeline` combines persisted run events and review decisions into a lightweight audit trail
 Run artifact endpoint: `/api/runs/{runId}/artifact` exposes patch/test evidence separately from the full run object for review and debugging
-Task execution metadata path: repository URL/full name, base branch, workspace root, and verification command can enter through REST/GitHub webhook, persist on Task, and flow into the Python runtime request
+Task execution metadata path: repository URL/full name, base branch, workspace root, verification command, external task id, and result callback URL can persist on Task and flow into the Python runtime/control-plane workflow
 WorkspacePreparer boundary with local Git workspace preparation: explicit workspace roots are validated, repository URLs can be cloned into a managed workspace root, base branches can be checked out, and workspace preparation failures stop the run before Python runtime submission
 Execution workspace tracking on Run plus local Git diff artifact collection: after runtime completion, the control plane can collect `git diff --binary` and `git status --porcelain` from the prepared workspace to strengthen or backfill patch evidence
 PatchBranchPreparer boundary: after human `AUTHORIZE_PR`, the control plane prepares and records a deterministic local patch branch such as `codeagentx/run-{runId}` before invoking the PR publisher
@@ -281,6 +281,7 @@ PatchPusher boundary: after local patch commit creation, the control plane pushe
 Multi-repository GitHub publishing: PR creation now receives both Run and Task context, prefers Task `repositoryFullName` and `baseBranch`, and falls back to global GitHub configuration only when task metadata is absent
 GitHub workflow_run CI writeback: workflow run webhooks are matched by `head_branch == patchBranch`, moving runs through `CI_RUNNING`, `SUCCEEDED`, or `FAILED`; duplicate CI writebacks do not duplicate final-text evidence
 GitHub webhook signature verification: optional HMAC-SHA256 validation is enforced when `CODEAGENTX_GITHUB_WEBHOOK_SECRET` is configured, while local demos remain frictionless when it is unset
+Generic REST adapter endpoint: `POST /api/adapters/generic/tasks` accepts non-GitHub external tasks, maps them into the same `TaskExecutionSpec`, stores external task/callback metadata, and deliberately leaves workspace ownership to the control plane.
 ```
 
 Current local validation:
@@ -288,7 +289,7 @@ Current local validation:
 ```text
 Python runtime service tests pass.
 Python full unit test suite passes: 278 tests with py -3.13 -B -m unittest discover -s tests -v.
-Spring Boot control-plane compiles and passes 52 Maven tests on JDK 17, covering workflow state transitions, review action gates, API conflict responses, JPA persistence, GitHub issue/webhook parsing, CI webhook idempotency and terminal-state protection, runtime submit retry, timeout recovery, and local Git publishing helpers.
+Spring Boot control-plane compiles and passes 53 Maven tests on JDK 17, covering workflow state transitions, review action gates, API conflict responses, JPA persistence, GitHub issue/webhook parsing, CI webhook idempotency and terminal-state protection, runtime submit retry, timeout recovery, and local Git publishing helpers.
 Latest suite-v0 ablation validation: run `ablation-20260825T052003Z-2e3401b1` completed 20 local tasks x 9 variants = 180 task runs; every configured variant resolved 20/20 local fixture tasks. Private audit artifacts are stored under `.codeagentx/benchmark-suite-v0-full/`.
 Latest control-plane validation: Maven test suite passed with `mvn test`; workflow tests cover REQUEST_CHANGES -> REVISING -> NEEDS_REVIEW.
 Latest local smoke validation: `mvn spring-boot:run "-Dspring-boot.run.profiles=smoke"` plus `py -3.13 -B demos/run_control_plane_smoke.py` reached `SUCCEEDED`.
@@ -385,7 +386,7 @@ The project should be read through a small evidence matrix rather than a feature
 | Evidence area | What it proves | Current artifact |
 | --- | --- | --- |
 | Runtime capability | The Python agent can inspect, edit, verify, reflect, retry, and report inside a repository | Python unit tests, deterministic 3-minute demo, completed suite-v0 ablation run |
-| Business vertical slice | A real development task can enter through GitHub/REST and return as PR/CI status | `docs/e2e-github-target.md`, target repo PR #1, CI writeback record |
+| Business vertical slice | A real development task can enter through GitHub webhook or Generic REST and return as PR/CI status | `docs/e2e-github-target.md`, target repo PR #1, CI writeback record, `/api/adapters/generic/tasks` |
 | Review control | Human feedback can approve, reject, request changes, or authorize PR publication | `APPROVE`, `REQUEST_CHANGES`, `REJECT`, `AUTHORIZE_PR` workflow |
 | Idempotency | Duplicate delivery does not create duplicate work | `demos/run_duplicate_issue_webhook_smoke.py` |
 | Duplicate event handling | Duplicate CI webhooks do not duplicate status evidence | `demos/run_duplicate_workflow_run_smoke.py` |

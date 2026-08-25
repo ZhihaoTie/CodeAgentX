@@ -29,12 +29,14 @@ public class RunController {
     private final RunEventStreamHub eventStreamHub;
     private final RunTimelineMapper timelineMapper;
     private final RunArtifactMapper artifactMapper;
+    private final GenericRestTaskAdapter genericRestTaskAdapter;
 
-    public RunController(RunWorkflowService workflowService, RunEventStreamHub eventStreamHub) {
+    public RunController(RunWorkflowService workflowService, RunEventStreamHub eventStreamHub, GenericRestTaskAdapter genericRestTaskAdapter) {
         this.workflowService = workflowService;
         this.eventStreamHub = eventStreamHub;
         this.timelineMapper = new RunTimelineMapper();
         this.artifactMapper = new RunArtifactMapper();
+        this.genericRestTaskAdapter = genericRestTaskAdapter;
     }
 
     @ExceptionHandler(InvalidRunStateException.class)
@@ -59,6 +61,12 @@ public class RunController {
             request.getWorkspaceRoot(),
             request.getVerificationCommand()
         ));
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(run);
+    }
+
+    @PostMapping("/adapters/generic/tasks")
+    public ResponseEntity<RunRecord> createGenericTask(@Valid @RequestBody GenericTaskRequest request) {
+        RunRecord run = workflowService.createTaskAndRun(genericRestTaskAdapter.toExecutionSpec(request));
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(run);
     }
 

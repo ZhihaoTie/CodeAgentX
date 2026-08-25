@@ -10,6 +10,8 @@ public class TaskExecutionSpec {
     private final String baseBranch;
     private final String workspaceRoot;
     private final String verificationCommand;
+    private final String externalTaskId;
+    private final String resultCallbackUrl;
 
     public TaskExecutionSpec(
         String source,
@@ -22,6 +24,22 @@ public class TaskExecutionSpec {
         String workspaceRoot,
         String verificationCommand
     ) {
+        this(source, title, body, idempotencyKey, repositoryUrl, repositoryFullName, baseBranch, workspaceRoot, verificationCommand, null, null);
+    }
+
+    public TaskExecutionSpec(
+        String source,
+        String title,
+        String body,
+        String idempotencyKey,
+        String repositoryUrl,
+        String repositoryFullName,
+        String baseBranch,
+        String workspaceRoot,
+        String verificationCommand,
+        String externalTaskId,
+        String resultCallbackUrl
+    ) {
         this.source = source;
         this.title = title;
         this.body = body;
@@ -31,6 +49,8 @@ public class TaskExecutionSpec {
         this.baseBranch = baseBranch;
         this.workspaceRoot = workspaceRoot;
         this.verificationCommand = verificationCommand;
+        this.externalTaskId = externalTaskId;
+        this.resultCallbackUrl = resultCallbackUrl;
     }
 
     public String getSource() { return source; }
@@ -42,4 +62,6 @@ public class TaskExecutionSpec {
     public String getBaseBranch() { return baseBranch; }
     public String getWorkspaceRoot() { return workspaceRoot; }
     public String getVerificationCommand() { return verificationCommand; }
+    public String getExternalTaskId() { return externalTaskId; }
+    public String getResultCallbackUrl() { return resultCallbackUrl; }
 }

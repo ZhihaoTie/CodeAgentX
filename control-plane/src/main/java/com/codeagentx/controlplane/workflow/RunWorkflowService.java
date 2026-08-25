@@ -170,7 +170,9 @@ public class RunWorkflowService {
             spec.getRepositoryFullName(),
             spec.getBaseBranch(),
             spec.getWorkspaceRoot(),
-            spec.getVerificationCommand()
+            spec.getVerificationCommand(),
+            spec.getExternalTaskId(),
+            spec.getResultCallbackUrl()
         ));
         RunRecord run = new RunRecord(task.getTaskId());
         run.setStatus(RunStatus.QUEUED);

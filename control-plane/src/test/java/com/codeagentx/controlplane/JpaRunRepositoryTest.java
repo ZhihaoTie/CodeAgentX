@@ -85,7 +85,9 @@ class JpaRunRepositoryTest {
                 "acme/repo",
                 "main",
                 "D:\\workspaces\\repo",
-                "mvn test"
+                "mvn test",
+                "ticket-42",
+                "https://example.com/callbacks/42"
             )
         );
         RunRecord run = repository.saveRun(new RunRecord(task.getTaskId()));
@@ -100,6 +102,8 @@ class JpaRunRepositoryTest {
         assertThat(loadedTask.getBaseBranch()).isEqualTo("main");
         assertThat(loadedTask.getWorkspaceRoot()).isEqualTo("D:\\workspaces\\repo");
         assertThat(loadedTask.getVerificationCommand()).isEqualTo("mvn test");
+        assertThat(loadedTask.getExternalTaskId()).isEqualTo("ticket-42");
+        assertThat(loadedTask.getResultCallbackUrl()).isEqualTo("https://example.com/callbacks/42");
         assertThat(loadedRun.getRunId()).isEqualTo(run.getRunId());
     }
 }

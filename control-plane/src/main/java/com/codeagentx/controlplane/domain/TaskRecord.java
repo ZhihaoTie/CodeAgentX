@@ -50,6 +50,12 @@ public class TaskRecord {
     @Column(name = "verification_command", length = 512)
     private String verificationCommand;
 
+    @Column(name = "external_task_id", length = 256)
+    private String externalTaskId;
+
+    @Column(name = "result_callback_url", length = 1024)
+    private String resultCallbackUrl;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -75,8 +81,24 @@ public class TaskRecord {
         String workspaceRoot,
         String verificationCommand
     ) {
+        this(source, title, body, idempotencyKey, repositoryUrl, repositoryFullName, baseBranch, workspaceRoot, verificationCommand, null, null);
+    }
+
+    public TaskRecord(
+        String source,
+        String title,
+        String body,
+        String idempotencyKey,
+        String repositoryUrl,
+        String repositoryFullName,
+        String baseBranch,
+        String workspaceRoot,
+        String verificationCommand,
+        String externalTaskId,
+        String resultCallbackUrl
+    ) {
         this.taskId = UUID.randomUUID().toString();
-        this.source = source;
+        this.source = blankToDefault(source, "rest");
         this.title = title;
         this.body = body;
         this.idempotencyKey = normalizeIdempotencyKey(idempotencyKey);
@@ -85,38 +107,24 @@ public class TaskRecord {
         this.baseBranch = blankToNull(baseBranch);
         this.workspaceRoot = blankToNull(workspaceRoot);
         this.verificationCommand = blankToNull(verificationCommand);
+        this.externalTaskId = blankToNull(externalTaskId);
+        this.resultCallbackUrl = blankToNull(resultCallbackUrl);
         this.createdAt = Instant.now();
     }
 
-    public String getTaskId() {
-        return taskId;
-    }
-
-    public String getSource() {
-        return source;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public String getBody() {
-        return body;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public String getIdempotencyKey() {
-        return idempotencyKey;
-    }
-
+    public String getTaskId() { return taskId; }
+    public String getSource() { return source; }
+    public String getTitle() { return title; }
+    public String getBody() { return body; }
+    public Instant getCreatedAt() { return createdAt; }
+    public String getIdempotencyKey() { return idempotencyKey; }
     public String getRepositoryUrl() { return repositoryUrl; }
     public String getRepositoryFullName() { return repositoryFullName; }
     public String getBaseBranch() { return baseBranch; }
     public String getWorkspaceRoot() { return workspaceRoot; }
     public String getVerificationCommand() { return verificationCommand; }
+    public String getExternalTaskId() { return externalTaskId; }
+    public String getResultCallbackUrl() { return resultCallbackUrl; }
 
     private String normalizeIdempotencyKey(String idempotencyKey) {
         if (idempotencyKey == null) {
@@ -127,6 +135,11 @@ public class TaskRecord {
             return null;
         }
         return trimmed;
+    }
+
+    private String blankToDefault(String value, String defaultValue) {
+        String normalized = blankToNull(value);
+        return normalized == null ? defaultValue : normalized;
     }
 
     private String blankToNull(String value) {
