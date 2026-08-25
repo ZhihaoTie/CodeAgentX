@@ -160,6 +160,12 @@ def main() -> int:
         final_run = refresh_until_terminalish(args.base_url, run_id, args.timeout_seconds)
         final_status = final_run.get("status")
         final_callback = state.wait_for_status(external_task_id, final_status, args.timeout_seconds)
+        deliveries = get_json(args.base_url, f"/api/runs/{run_id}/callback-deliveries", "compose-generic-deliveries")
+        audit = get_json(args.base_url, f"/api/runs/{run_id}/audit", "compose-generic-audit")
+        if not any(item.get("status") == "DELIVERED" and item.get("event") == final_status for item in deliveries):
+            raise RuntimeError(f"callback delivery record missing final status {final_status}: {deliveries}")
+        if not audit.get("summary", {}).get("hasCallback"):
+            raise RuntimeError(f"audit summary does not include callback evidence: {audit}")
         print(json.dumps({
             "accepted": {
                 "taskId": accepted.get("taskId"),
@@ -168,6 +174,8 @@ def main() -> int:
             },
             "firstCallback": first_callback,
             "finalCallback": final_callback,
+            "deliveryRecords": deliveries,
+            "auditSummary": audit.get("summary"),
             "finalRun": {
                 "runId": final_run.get("runId"),
                 "status": final_run.get("status"),

@@ -246,7 +246,7 @@ Every control-plane HTTP request returns `X-Request-Id`. If the caller provides 
 
 `/api/metrics` exposes a lightweight operational snapshot with run counts, status distribution, active/terminal run totals, worker limits, runtime base URL, publisher mode, callback enablement, and workspace root.
 
-Generic REST result callbacks are opt-in. When `CODEAGENTX_CALLBACKS_ENABLED=true` and a task has `resultCallbackUrl`, the control plane posts run status updates with `taskId`, `runId`, `externalTaskId`, status, runtime id, PR URL, and failure reason. Callback failures are isolated from the core run workflow, and callback enablement is visible through health, metrics, and config preflight responses.
+Generic REST result callbacks are opt-in. When `CODEAGENTX_CALLBACKS_ENABLED=true` and a task has `resultCallbackUrl`, the control plane posts run status updates with `taskId`, `runId`, `externalTaskId`, status, runtime id, PR URL, and failure reason. Callback delivery is recorded with URL, event, status, attempt count, response code, last error, and delivery timestamp. Callback failures are isolated from the core run workflow, and callback enablement is visible through health, metrics, and config preflight responses.
 
 ## Docker Compose deployment
 

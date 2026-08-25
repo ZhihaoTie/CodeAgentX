@@ -92,7 +92,7 @@ all Maven tests pass on JDK 17
 Current validated count:
 
 ```text
-58 tests, 0 failures, 0 errors, 0 skipped
+62 tests, 0 failures, 0 errors, 0 skipped
 ```
 
 ## 5. Compose deployment validation

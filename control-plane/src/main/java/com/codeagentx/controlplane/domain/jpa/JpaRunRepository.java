@@ -1,5 +1,6 @@
 package com.codeagentx.controlplane.domain.jpa;
 
+import com.codeagentx.controlplane.domain.CallbackDeliveryRecord;
 import com.codeagentx.controlplane.domain.RunRecord;
 import com.codeagentx.controlplane.domain.RunRepositoryPort;
 import com.codeagentx.controlplane.domain.RunStatus;
@@ -13,13 +14,16 @@ import java.util.Collection;
 public class JpaRunRepository implements RunRepositoryPort {
     private final JpaTaskRepository taskRepository;
     private final JpaRunRecordRepository runRepository;
+    private final JpaCallbackDeliveryRepository callbackDeliveryRepository;
 
     public JpaRunRepository(
         JpaTaskRepository taskRepository,
-        JpaRunRecordRepository runRepository
+        JpaRunRecordRepository runRepository,
+        JpaCallbackDeliveryRepository callbackDeliveryRepository
     ) {
         this.taskRepository = taskRepository;
         this.runRepository = runRepository;
+        this.callbackDeliveryRepository = callbackDeliveryRepository;
     }
 
     @Override
@@ -32,6 +36,15 @@ public class JpaRunRepository implements RunRepositoryPort {
     @Transactional
     public RunRecord saveRun(RunRecord run) {
         return runRepository.save(run);
+    }
+
+    @Override
+    @Transactional
+    public CallbackDeliveryRecord saveCallbackDelivery(CallbackDeliveryRecord delivery) {
+        if (delivery == null) {
+            return null;
+        }
+        return callbackDeliveryRepository.save(delivery);
     }
 
     @Override
@@ -80,5 +93,11 @@ public class JpaRunRepository implements RunRepositoryPort {
     @Transactional(readOnly = true)
     public Collection<RunRecord> listRuns() {
         return runRepository.findAll();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Collection<CallbackDeliveryRecord> listCallbackDeliveries(String runId) {
+        return callbackDeliveryRepository.findByRunIdOrderByCreatedAtAsc(runId);
     }
 }

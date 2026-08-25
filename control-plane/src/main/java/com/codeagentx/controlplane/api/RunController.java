@@ -1,6 +1,8 @@
 package com.codeagentx.controlplane.api;
 
+import com.codeagentx.controlplane.domain.CallbackDeliveryRecord;
 import com.codeagentx.controlplane.domain.RunRecord;
+import com.codeagentx.controlplane.domain.TaskRecord;
 import com.codeagentx.controlplane.domain.TaskExecutionSpec;
 import com.codeagentx.controlplane.events.RunEventStreamHub;
 import com.codeagentx.controlplane.workflow.InvalidRunStateException;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
 
 @Validated
@@ -133,6 +136,34 @@ public class RunController {
         return ResponseEntity.ok(run);
     }
 
+    @GetMapping("/runs/{runId}/audit")
+    public ResponseEntity<Map<String, Object>> getRunAudit(@PathVariable String runId) {
+        RunRecord run = workflowService.getRun(runId);
+        if (run == null) {
+            return ResponseEntity.notFound().build();
+        }
+        TaskRecord task = workflowService.getTask(run.getTaskId());
+        Collection<CallbackDeliveryRecord> deliveries = workflowService.listCallbackDeliveries(runId);
+        Map<String, Object> response = new java.util.LinkedHashMap<String, Object>();
+        response.put("runId", run.getRunId());
+        response.put("taskId", run.getTaskId());
+        response.put("status", run.getStatus().name());
+        response.put("task", taskSummary(task));
+        response.put("timeline", timelineMapper.toTimeline(run).get("items"));
+        response.put("artifact", run.getPatchArtifact() == null ? null : artifactMapper.toArtifact(run));
+        response.put("reviews", run.getReviews());
+        response.put("callbackDeliveries", deliveries);
+        response.put("summary", auditSummary(run, deliveries));
+        return ResponseEntity.ok(response);
+    }
+    @GetMapping("/runs/{runId}/callback-deliveries")
+    public ResponseEntity<Collection<CallbackDeliveryRecord>> getCallbackDeliveries(@PathVariable String runId) {
+        RunRecord run = workflowService.getRun(runId);
+        if (run == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(workflowService.listCallbackDeliveries(runId));
+    }
     @GetMapping("/runs/{runId}/events")
     public SseEmitter streamRunEvents(@PathVariable String runId) throws IOException {
         RunRecord run = workflowService.getRun(runId);
@@ -140,5 +171,37 @@ public class RunController {
             throw new IllegalArgumentException("run not found: " + runId);
         }
         return eventStreamHub.subscribe(run);
+    }
+    private Map<String, Object> taskSummary(TaskRecord task) {
+        if (task == null) {
+            return null;
+        }
+        Map<String, Object> response = new java.util.LinkedHashMap<String, Object>();
+        response.put("taskId", task.getTaskId());
+        response.put("source", task.getSource());
+        response.put("title", task.getTitle());
+        response.put("externalTaskId", task.getExternalTaskId());
+        response.put("repositoryUrl", task.getRepositoryUrl());
+        response.put("repositoryFullName", task.getRepositoryFullName());
+        response.put("baseBranch", task.getBaseBranch());
+        response.put("verificationCommand", task.getVerificationCommand());
+        response.put("provider", task.getProvider());
+        response.put("model", task.getModel());
+        response.put("maxTurns", task.getMaxTurns());
+        response.put("maxRunSeconds", task.getMaxRunSeconds());
+        response.put("permissionMode", task.getPermissionMode());
+        response.put("createdAt", task.getCreatedAt() == null ? null : task.getCreatedAt().toString());
+        return response;
+    }
+
+    private Map<String, Object> auditSummary(RunRecord run, Collection<CallbackDeliveryRecord> deliveries) {
+        Map<String, Object> response = new java.util.LinkedHashMap<String, Object>();
+        response.put("hasPatch", run.getPatchArtifact() != null && run.getPatchArtifact().getDiffText() != null);
+        response.put("hasVerification", run.getPatchArtifact() != null && run.getPatchArtifact().getTestReport() != null);
+        response.put("hasReview", !run.getReviews().isEmpty());
+        response.put("hasPr", run.getPullRequestUrl() != null);
+        response.put("hasCi", run.getStatus().name().startsWith("CI_") || run.getFinalText() != null && run.getFinalText().contains("CI "));
+        response.put("hasCallback", deliveries != null && !deliveries.isEmpty());
+        return response;
     }
 }

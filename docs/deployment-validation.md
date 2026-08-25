@@ -109,6 +109,8 @@ firstCallback.status = QUEUED
 finalRun.status = NEEDS_REVIEW
 finalCallback.status = NEEDS_REVIEW
 finalRun.runtimeRunId = generated
+callback delivery records include DELIVERED outcomes for QUEUED/RUNNING/NEEDS_REVIEW updates
+audit summary reports hasCallback = true
 ```
 
 This validates the business-control path:
@@ -122,6 +124,8 @@ External task
  -> Runtime completion refresh
  -> Reviewable result
  -> External callback writeback
+ -> Callback delivery record
+ -> Execution audit API
 ```
 
 ## Runtime override contract

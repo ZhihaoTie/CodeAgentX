@@ -1,5 +1,6 @@
 package com.codeagentx.controlplane.callback;
 
+import com.codeagentx.controlplane.domain.CallbackDeliveryRecord;
 import com.codeagentx.controlplane.domain.RunRecord;
 import com.codeagentx.controlplane.domain.RunStatus;
 import com.codeagentx.controlplane.domain.TaskRecord;
@@ -12,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class HttpResultCallbackNotifierTest {
@@ -50,9 +52,19 @@ class HttpResultCallbackNotifierTest {
             .andExpect(jsonPath("$.pullRequestUrl").value("https://github.com/acme/repo/pull/7"))
             .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
-        notifier.notifyRunUpdated(run, task);
+        CallbackDeliveryRecord delivery = notifier.notifyRunUpdated(run, task);
 
         server.verify();
+        assertThat(delivery.getRunId()).isEqualTo(run.getRunId());
+        assertThat(delivery.getTaskId()).isEqualTo(task.getTaskId());
+        assertThat(delivery.getExternalTaskId()).isEqualTo("ticket-42");
+        assertThat(delivery.getUrl()).isEqualTo("https://example.com/callbacks/42");
+        assertThat(delivery.getEvent()).isEqualTo("SUCCEEDED");
+        assertThat(delivery.getStatus()).isEqualTo("DELIVERED");
+        assertThat(delivery.getAttempt()).isEqualTo(1);
+        assertThat(delivery.getResponseCode()).isEqualTo(200);
+        assertThat(delivery.getLastError()).isNull();
+        assertThat(delivery.getDeliveredAt()).isNotNull();
     }
 
     @Test
@@ -61,8 +73,45 @@ class HttpResultCallbackNotifierTest {
         TaskRecord task = new TaskRecord("generic_rest", "Fix parser", "Details");
         RunRecord run = new RunRecord(task.getTaskId());
 
-        notifier.notifyRunUpdated(run, task);
+        CallbackDeliveryRecord delivery = notifier.notifyRunUpdated(run, task);
 
+        assertThat(delivery).isNull();
         assertThat(run.getRunId()).isNotBlank();
+    }
+    @Test
+    void retriesAndRecordsFailedDelivery() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        HttpResultCallbackNotifier notifier = new HttpResultCallbackNotifier(restTemplate, 2, 0L);
+        TaskRecord task = new TaskRecord(
+            "generic_rest",
+            "Fix parser",
+            "Parser should ignore blank lines.",
+            "delivery-1",
+            null,
+            null,
+            null,
+            null,
+            null,
+            "ticket-42",
+            "https://example.com/callbacks/42"
+        );
+        RunRecord run = new RunRecord(task.getTaskId());
+        run.setStatus(RunStatus.FAILED);
+
+        server.expect(requestTo("https://example.com/callbacks/42"))
+            .andRespond(withServerError());
+        server.expect(requestTo("https://example.com/callbacks/42"))
+            .andRespond(withServerError());
+
+        CallbackDeliveryRecord delivery = notifier.notifyRunUpdated(run, task);
+
+        server.verify();
+        assertThat(delivery.getStatus()).isEqualTo("FAILED");
+        assertThat(delivery.getEvent()).isEqualTo("FAILED");
+        assertThat(delivery.getAttempt()).isEqualTo(2);
+        assertThat(delivery.getResponseCode()).isEqualTo(500);
+        assertThat(delivery.getLastError()).contains("500");
+        assertThat(delivery.getDeliveredAt()).isNull();
     }
 }

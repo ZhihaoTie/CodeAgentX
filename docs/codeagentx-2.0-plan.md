@@ -273,6 +273,7 @@ Run summary endpoint: `/api/runs/summary` reports total runs, counts by status, 
 Run cancellation endpoint: `/api/runs/{runId}/cancel` marks non-terminal runs as `CANCELLED`, records a cancellation event, and avoids submitting already-cancelled queued runs to the runtime
 Run timeline endpoint: `/api/runs/{runId}/timeline` combines persisted run events and review decisions into a lightweight audit trail
 Run artifact endpoint: `/api/runs/{runId}/artifact` exposes patch/test evidence separately from the full run object for review and debugging
+Run audit endpoint: `/api/runs/{runId}/audit` aggregates task metadata, timeline events, artifact evidence, reviews, callback deliveries, and audit summary flags into one execution audit trail
 Task execution metadata path: repository URL/full name, base branch, workspace root, verification command, external task id, result callback URL, provider, model, max turns, max run seconds, and permission mode can persist on Task and flow into the Python runtime/control-plane workflow
 WorkspacePreparer boundary with local Git workspace preparation: explicit workspace roots are validated, repository URLs can be cloned into a managed workspace root, base branches can be checked out, and workspace preparation failures stop the run before Python runtime submission
 Execution workspace tracking on Run plus local Git diff artifact collection: after runtime completion, the control plane can collect `git diff --binary` and `git status --porcelain` from the prepared workspace to strengthen or backfill patch evidence
@@ -285,10 +286,10 @@ GitHub webhook signature verification: optional HMAC-SHA256 validation is enforc
 Generic REST adapter endpoint: `POST /api/adapters/generic/tasks` accepts non-GitHub external tasks, maps them into the same `TaskExecutionSpec`, stores external task/callback metadata, supports bounded runtime overrides, and deliberately leaves workspace ownership to the control plane.
 Basic request correlation: every control-plane HTTP response includes `X-Request-Id`, incoming request ids are echoed, missing ids are generated, and logs include MDC `request_id`.
 Basic metrics endpoint: `/api/metrics` exposes run totals, status counts, active/terminal run counts, worker limits, runtime base URL, publisher mode, callback enablement, and workspace root for lightweight operational visibility.
-Generic REST result callbacks: when `CODEAGENTX_CALLBACKS_ENABLED=true` and `resultCallbackUrl` is present, the control plane posts run status updates back to the external system while isolating callback failures from the core workflow; callback enablement is also visible in health, metrics, and preflight responses.
+Generic REST result callbacks: when `CODEAGENTX_CALLBACKS_ENABLED=true` and `resultCallbackUrl` is present, the control plane posts run status updates back to the external system while isolating callback failures from the core workflow; each callback attempt outcome is captured as a delivery record with URL, event, status, attempt count, response code, last error, and delivery timestamp; callback enablement is also visible in health, metrics, and preflight responses.
 Compose smoke script: `demos/run_compose_smoke.py` checks health, preflight, metrics, and request-id echo behavior against a running Compose deployment without mutating tasks or GitHub state. Compose smoke has been validated locally with PostgreSQL, Python Runtime, and Spring Boot Control Plane all healthy.
 Compose restart smoke script: `demos/run_compose_restart_smoke.py` restarts the Compose deployment, waits for recovery, and re-runs the read-only smoke checks.
-Compose Generic REST callback smoke script: `demos/run_compose_generic_callback_smoke.py` submits a controlled `provider=mock` task through the Generic REST adapter, receives the initial callback, refreshes runtime completion, and verifies the final `NEEDS_REVIEW` callback without creating a PR.
+Compose Generic REST callback smoke script: `demos/run_compose_generic_callback_smoke.py` submits a controlled `provider=mock` task through the Generic REST adapter, receives the initial callback, refreshes runtime completion, verifies the final `NEEDS_REVIEW` callback, checks persisted callback delivery records, and checks the run audit summary without creating a PR.
 ```
 
 Current local validation:
@@ -296,9 +297,9 @@ Current local validation:
 ```text
 Python runtime service tests pass.
 Python full unit test suite passes: 278 tests with py -3.13 -B -m unittest discover -s tests -v.
-Spring Boot control-plane compiles and passes 58 Maven tests on JDK 17, covering workflow state transitions, review action gates, API conflict responses, JPA persistence, GitHub issue/webhook parsing, CI webhook idempotency and terminal-state protection, runtime submit retry, timeout recovery, request correlation, basic metrics, optional result callbacks, and local Git publishing helpers.
+Spring Boot control-plane compiles and passes 62 Maven tests on JDK 17, covering workflow state transitions, review action gates, API conflict responses, JPA persistence, GitHub issue/webhook parsing, CI webhook idempotency and terminal-state protection, runtime submit retry, timeout recovery, request correlation, basic metrics, optional result callbacks, and local Git publishing helpers.
 Latest suite-v0 ablation validation: run `ablation-20260825T052003Z-2e3401b1` completed 20 local tasks x 9 variants = 180 task runs; every configured variant resolved 20/20 local fixture tasks. Private audit artifacts are stored under `.codeagentx/benchmark-suite-v0-full/`.
-Latest control-plane validation: Maven test suite passed with `mvn test`; workflow tests cover REQUEST_CHANGES -> REVISING -> NEEDS_REVIEW.
+Latest control-plane validation: Maven test suite passed with `mvn test`; workflow tests cover REQUEST_CHANGES -> REVISING -> NEEDS_REVIEW plus callback delivery recording and audit API exposure.
 Latest local smoke validation: `mvn spring-boot:run "-Dspring-boot.run.profiles=smoke"` plus `py -3.13 -B demos/run_control_plane_smoke.py` reached `SUCCEEDED`.
 ```
 

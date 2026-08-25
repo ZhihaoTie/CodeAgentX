@@ -1,5 +1,7 @@
 package com.codeagentx.controlplane;
 
+import com.codeagentx.controlplane.callback.ResultCallbackNotifier;
+import com.codeagentx.controlplane.domain.CallbackDeliveryRecord;
 import com.codeagentx.controlplane.domain.InMemoryRunRepository;
 import com.codeagentx.controlplane.domain.ReviewDecision;
 import com.codeagentx.controlplane.domain.RunRecord;
@@ -21,6 +23,7 @@ import com.codeagentx.controlplane.workflow.InvalidRunStateException;
 import com.codeagentx.controlplane.workflow.RunWorkflowService;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -565,12 +568,71 @@ class RunWorkflowServiceTest {
         assertThat(afterCancel.getFailureReason()).isNull();
     }
 
+
+    @Test
+    void saveAndPublishRecordsCallbackDeliveryEvent() {
+        FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
+        InMemoryRunRepository repository = new InMemoryRunRepository();
+        RunWorkflowService service = new RunWorkflowService(
+            repository,
+            runtimeClient,
+            new FakeResultCallbackNotifier("DELIVERED")
+        );
+
+        RunRecord run = service.createTaskAndRun(new TaskExecutionSpec(
+            "generic_rest",
+            "Fix callback audit",
+            "Record callback deliveries.",
+            "callback-delivery-1",
+            null,
+            null,
+            null,
+            null,
+            null,
+            "ticket-42",
+            "https://example.com/callbacks/42"
+        ));
+
+        assertThat(repository.listCallbackDeliveries(run.getRunId()))
+            .extracting("status")
+            .contains("DELIVERED");
+        assertThat(repository.getRun(run.getRunId()).getEvents())
+            .extracting("eventType")
+            .contains("CALLBACK_DELIVERED");
+    }
     private RunRecord moveToReview(RunWorkflowService service, RunRecord run, FakeRuntimeClient runtimeClient) {
         runtimeClient.nextStatus = "SUCCEEDED";
         runtimeClient.nextFinalText = "Patch ready.";
         return service.refreshFromRuntime(run.getRunId());
     }
 
+
+    private static class FakeResultCallbackNotifier implements ResultCallbackNotifier {
+        private final String status;
+
+        FakeResultCallbackNotifier(String status) {
+            this.status = status;
+        }
+
+        @Override
+        public CallbackDeliveryRecord notifyRunUpdated(RunRecord run, com.codeagentx.controlplane.domain.TaskRecord task) {
+            if (task == null || task.getResultCallbackUrl() == null) {
+                return null;
+            }
+            return new CallbackDeliveryRecord(
+                task.getTaskId(),
+                run.getRunId(),
+                task.getExternalTaskId(),
+                task.getResultCallbackUrl(),
+                run.getStatus().name(),
+                status,
+                1,
+                "DELIVERED".equals(status) ? 200 : 500,
+                "DELIVERED".equals(status) ? null : "callback failed",
+                "DELIVERED".equals(status) ? Instant.now() : null
+            );
+        }
+    }
     private static class FakeRuntimeClient extends RuntimeClient {
         private int nextRunNumber = 1;
         private boolean failSubmit = false;

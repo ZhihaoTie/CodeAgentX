@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentMap;
 public class InMemoryRunRepository implements RunRepositoryPort {
     private final ConcurrentMap<String, TaskRecord> tasks = new ConcurrentHashMap<String, TaskRecord>();
     private final ConcurrentMap<String, RunRecord> runs = new ConcurrentHashMap<String, RunRecord>();
+    private final ConcurrentMap<String, CallbackDeliveryRecord> callbackDeliveries = new ConcurrentHashMap<String, CallbackDeliveryRecord>();
 
     public TaskRecord saveTask(TaskRecord task) {
         tasks.put(task.getTaskId(), task);
@@ -18,6 +19,13 @@ public class InMemoryRunRepository implements RunRepositoryPort {
     public RunRecord saveRun(RunRecord run) {
         runs.put(run.getRunId(), run);
         return run;
+    }
+
+    public CallbackDeliveryRecord saveCallbackDelivery(CallbackDeliveryRecord delivery) {
+        if (delivery != null) {
+            callbackDeliveries.put(delivery.getDeliveryId(), delivery);
+        }
+        return delivery;
     }
 
     public TaskRecord getTask(String taskId) {
@@ -73,5 +81,15 @@ public class InMemoryRunRepository implements RunRepositoryPort {
 
     public Collection<RunRecord> listRuns() {
         return runs.values();
+    }
+
+    public Collection<CallbackDeliveryRecord> listCallbackDeliveries(String runId) {
+        List<CallbackDeliveryRecord> result = new ArrayList<CallbackDeliveryRecord>();
+        for (CallbackDeliveryRecord delivery : callbackDeliveries.values()) {
+            if (runId.equals(delivery.getRunId())) {
+                result.add(delivery);
+            }
+        }
+        return result;
     }
 }

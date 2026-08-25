@@ -1,13 +1,19 @@
 package com.codeagentx.controlplane;
 
 import com.codeagentx.controlplane.api.GenericRestTaskAdapter;
+import com.codeagentx.controlplane.domain.CallbackDeliveryRecord;
 import com.codeagentx.controlplane.api.RunController;
 import com.codeagentx.controlplane.domain.RunRecord;
+import com.codeagentx.controlplane.domain.TaskRecord;
 import com.codeagentx.controlplane.domain.TaskExecutionSpec;
 import com.codeagentx.controlplane.events.RunEventStreamHub;
 import com.codeagentx.controlplane.workflow.InvalidRunStateException;
 import com.codeagentx.controlplane.workflow.RunWorkflowService;
 import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -21,6 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -59,6 +66,80 @@ class RunControllerTest {
         assertThat(spec.getPermissionMode()).isEqualTo("auto");
     }
 
+
+
+    @Test
+    void auditEndpointReturnsExecutionTrail() throws Exception {
+        RunRecord run = new RunRecord("task-1");
+        TaskRecord task = new TaskRecord(
+            "generic_rest",
+            "Fix parser",
+            "Details",
+            "delivery-1",
+            null,
+            "acme/repo",
+            "main",
+            null,
+            "pytest -q",
+            "ticket-42",
+            "https://example.com/callbacks/42",
+            "mock",
+            "mock-model",
+            1,
+            15.0,
+            "auto"
+        );
+        when(workflowService.getRun(run.getRunId())).thenReturn(run);
+        when(workflowService.getTask(run.getTaskId())).thenReturn(task);
+        when(workflowService.listCallbackDeliveries(run.getRunId())).thenReturn(Collections.singletonList(new CallbackDeliveryRecord(
+            task.getTaskId(),
+            run.getRunId(),
+            "ticket-42",
+            "https://example.com/callbacks/42",
+            "QUEUED",
+            "DELIVERED",
+            1,
+            200,
+            null,
+            Instant.parse("2026-08-25T10:00:00Z")
+        )));
+
+        mockMvc.perform(get("/api/runs/{runId}/audit", run.getRunId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.runId").value(run.getRunId()))
+            .andExpect(jsonPath("$.task.source").value("generic_rest"))
+            .andExpect(jsonPath("$.task.repositoryFullName").value("acme/repo"))
+            .andExpect(jsonPath("$.task.provider").value("mock"))
+            .andExpect(jsonPath("$.timeline[0].type").value("RUN_CREATED"))
+            .andExpect(jsonPath("$.callbackDeliveries[0].status").value("DELIVERED"))
+            .andExpect(jsonPath("$.summary.hasCallback").value(true));
+    }
+    @Test
+    void callbackDeliveriesEndpointReturnsRunDeliveries() throws Exception {
+        RunRecord run = new RunRecord("task-1");
+        when(workflowService.getRun(run.getRunId())).thenReturn(run);
+        when(workflowService.listCallbackDeliveries(run.getRunId())).thenReturn(Collections.singletonList(new CallbackDeliveryRecord(
+            "task-1",
+            run.getRunId(),
+            "ticket-42",
+            "https://example.com/callbacks/42",
+            "NEEDS_REVIEW",
+            "DELIVERED",
+            2,
+            200,
+            null,
+            Instant.parse("2026-08-25T10:00:00Z")
+        )));
+
+        mockMvc.perform(get("/api/runs/{runId}/callback-deliveries", run.getRunId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].runId").value(run.getRunId()))
+            .andExpect(jsonPath("$[0].externalTaskId").value("ticket-42"))
+            .andExpect(jsonPath("$[0].event").value("NEEDS_REVIEW"))
+            .andExpect(jsonPath("$[0].status").value("DELIVERED"))
+            .andExpect(jsonPath("$[0].attempt").value(2))
+            .andExpect(jsonPath("$[0].responseCode").value(200));
+    }
     @Test
     void reviewRunReturnsConflictForInvalidRunState() throws Exception {
         when(workflowService.reviewRun(eq("run-1"), any(), any()))

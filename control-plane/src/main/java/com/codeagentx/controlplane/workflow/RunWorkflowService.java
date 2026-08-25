@@ -2,6 +2,7 @@ package com.codeagentx.controlplane.workflow;
 
 import com.codeagentx.controlplane.callback.NoopResultCallbackNotifier;
 import com.codeagentx.controlplane.callback.ResultCallbackNotifier;
+import com.codeagentx.controlplane.domain.CallbackDeliveryRecord;
 import com.codeagentx.controlplane.domain.ReviewDecision;
 import com.codeagentx.controlplane.domain.ReviewRecord;
 import com.codeagentx.controlplane.domain.PatchArtifact;
@@ -33,7 +34,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Service
 public class RunWorkflowService {
@@ -114,6 +118,13 @@ public class RunWorkflowService {
         this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), new NoopResultCallbackNotifier(), workspacePreparer, gitDiffCollector, patchBranchPreparer, patchCommitter, patchPusher);
     }
 
+    public RunWorkflowService(
+        RunRepositoryPort repository,
+        RuntimeClient runtimeClient,
+        ResultCallbackNotifier resultCallbackNotifier
+    ) {
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), resultCallbackNotifier, new NoopWorkspacePreparer(), new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
+    }
     @Autowired
     public RunWorkflowService(
         RunRepositoryPort repository,
@@ -193,6 +204,14 @@ public class RunWorkflowService {
 
     public RunRecord getRun(String runId) {
         return repository.getRun(runId);
+    }
+
+    public TaskRecord getTask(String taskId) {
+        return repository.getTask(taskId);
+    }
+
+    public Collection<CallbackDeliveryRecord> listCallbackDeliveries(String runId) {
+        return repository.listCallbackDeliveries(runId);
     }
 
     public RunRecord reviewRun(String runId, ReviewDecision decision, String comment) {
@@ -477,12 +496,26 @@ public class RunWorkflowService {
     private void notifyResultCallback(RunRecord run) {
         try {
             TaskRecord task = repository.getTask(run.getTaskId());
-            resultCallbackNotifier.notifyRunUpdated(run, task);
+            CallbackDeliveryRecord delivery = resultCallbackNotifier.notifyRunUpdated(run, task);
+            if (delivery != null) {
+                repository.saveCallbackDelivery(delivery);
+                Map<String, Object> payload = new LinkedHashMap<String, Object>();
+                payload.put("deliveryId", delivery.getDeliveryId());
+                payload.put("url", delivery.getUrl());
+                payload.put("event", delivery.getEvent());
+                payload.put("status", delivery.getStatus());
+                payload.put("attempt", delivery.getAttempt());
+                payload.put("responseCode", delivery.getResponseCode());
+                if (delivery.getLastError() != null) {
+                    payload.put("lastError", delivery.getLastError());
+                }
+                run.addEvent("DELIVERED".equals(delivery.getStatus()) ? "CALLBACK_DELIVERED" : "CALLBACK_FAILED", payload);
+                repository.saveRun(run);
+            }
         } catch (Exception ignored) {
             // Callback delivery is an integration side effect and must not break the run workflow.
         }
     }
-
     private boolean isTerminal(RunStatus status) {
         return status == RunStatus.SUCCEEDED
             || status == RunStatus.FAILED

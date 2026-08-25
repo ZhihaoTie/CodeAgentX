@@ -1,11 +1,13 @@
 package com.codeagentx.controlplane;
 
+import com.codeagentx.controlplane.domain.CallbackDeliveryRecord;
 import com.codeagentx.controlplane.domain.ReviewDecision;
 import com.codeagentx.controlplane.domain.ReviewRecord;
 import com.codeagentx.controlplane.domain.PatchArtifact;
 import com.codeagentx.controlplane.domain.RunRecord;
 import com.codeagentx.controlplane.domain.RunStatus;
 import com.codeagentx.controlplane.domain.TaskRecord;
+import com.codeagentx.controlplane.domain.jpa.JpaCallbackDeliveryRepository;
 import com.codeagentx.controlplane.domain.jpa.JpaRunRepository;
 import com.codeagentx.controlplane.domain.jpa.JpaRunRecordRepository;
 import com.codeagentx.controlplane.domain.jpa.JpaTaskRepository;
@@ -13,6 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -27,6 +31,9 @@ class JpaRunRepositoryTest {
 
     @Autowired
     private JpaRunRecordRepository runRecordRepository;
+
+    @Autowired
+    private JpaCallbackDeliveryRepository callbackDeliveryRepository;
 
     @Test
     void persistsTaskRunReviewsAndEvents() {
@@ -68,9 +75,26 @@ class JpaRunRepositoryTest {
         assertThat(loaded.getPatchArtifact().getChangedFiles()).isEqualTo("a.py");
         assertThat(loaded.getPatchArtifact().getTrajectoryReportPath()).isEqualTo("reports/run.md");
         assertThat(loaded.getReviews()).hasSize(1);
+        CallbackDeliveryRecord delivery = repository.saveCallbackDelivery(new CallbackDeliveryRecord(
+            task.getTaskId(),
+            run.getRunId(),
+            "ticket-42",
+            "https://example.com/callbacks/42",
+            "RUNNING",
+            "DELIVERED",
+            1,
+            200,
+            null,
+            Instant.now()
+        ));
+
         assertThat(loaded.getEvents())
             .extracting("eventType")
             .contains("RUN_CREATED", "STATUS_CHANGED", "RUNTIME_RUN_LINKED", "REVIEW_RECORDED");
+        assertThat(callbackDeliveryRepository.findById(delivery.getDeliveryId())).isPresent();
+        assertThat(repository.listCallbackDeliveries(run.getRunId()))
+            .extracting("status")
+            .containsExactly("DELIVERED");
     }
 
     @Test

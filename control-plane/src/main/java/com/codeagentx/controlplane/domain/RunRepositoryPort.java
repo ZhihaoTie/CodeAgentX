@@ -7,6 +7,8 @@ public interface RunRepositoryPort {
 
     RunRecord saveRun(RunRecord run);
 
+    CallbackDeliveryRecord saveCallbackDelivery(CallbackDeliveryRecord delivery);
+
     TaskRecord getTask(String taskId);
 
     TaskRecord getTaskByIdempotencyKey(String idempotencyKey);
@@ -20,4 +22,6 @@ public interface RunRepositoryPort {
     Collection<RunRecord> listRunsByStatus(RunStatus status);
 
     Collection<RunRecord> listRuns();
+
+    Collection<CallbackDeliveryRecord> listCallbackDeliveries(String runId);
 }
