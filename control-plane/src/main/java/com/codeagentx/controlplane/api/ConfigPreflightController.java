@@ -23,6 +23,7 @@ public class ConfigPreflightController {
     private final String githubWebhookSecret;
     private final String runtimeBaseUrl;
     private final String workspaceRoot;
+    private final boolean callbacksEnabled;
 
     public ConfigPreflightController(
         @Value("${codeagentx.publisher.mode:noop}") String publisherMode,
@@ -34,7 +35,8 @@ public class ConfigPreflightController {
         @Value("${codeagentx.github.remote-name:origin}") String githubRemoteName,
         @Value("${codeagentx.github.webhook-secret:}") String githubWebhookSecret,
         @Value("${codeagentx.runtime.base-url}") String runtimeBaseUrl,
-        @Value("${codeagentx.workspace.root:../.codeagentx/control-plane/workspaces}") String workspaceRoot
+        @Value("${codeagentx.workspace.root:../.codeagentx/control-plane/workspaces}") String workspaceRoot,
+        @Value("${codeagentx.callbacks.enabled:false}") boolean callbacksEnabled
     ) {
         this.publisherMode = publisherMode;
         this.githubApiBaseUrl = githubApiBaseUrl;
@@ -46,6 +48,7 @@ public class ConfigPreflightController {
         this.githubWebhookSecret = githubWebhookSecret;
         this.runtimeBaseUrl = runtimeBaseUrl;
         this.workspaceRoot = workspaceRoot;
+        this.callbacksEnabled = callbacksEnabled;
     }
 
     @GetMapping("/preflight")
@@ -71,12 +74,16 @@ public class ConfigPreflightController {
         github.put("remoteName", githubRemoteName);
         github.put("webhookSignatureRequired", hasText(githubWebhookSecret));
 
+        Map<String, Object> callbacks = new LinkedHashMap<String, Object>();
+        callbacks.put("enabled", callbacksEnabled);
+
         Map<String, Object> response = new LinkedHashMap<String, Object>();
         response.put("status", missing.isEmpty() ? "ready" : "needs_configuration");
         response.put("publisherMode", publisherMode);
         response.put("runtimeBaseUrl", runtimeBaseUrl);
         response.put("workspaceRoot", workspaceRoot);
         response.put("github", github);
+        response.put("callbacks", callbacks);
         response.put("missing", missing);
         response.put("warnings", warnings);
         return response;

@@ -20,19 +20,22 @@ public class HealthController {
     private final GitHubWebhookSignatureVerifier signatureVerifier;
     private final String publisherMode;
     private final String workspaceRoot;
+    private final boolean callbacksEnabled;
 
     public HealthController(
         DataSource dataSource,
         RuntimeClient runtimeClient,
         GitHubWebhookSignatureVerifier signatureVerifier,
         @Value("${codeagentx.publisher.mode:noop}") String publisherMode,
-        @Value("${codeagentx.workspace.root:../.codeagentx/control-plane/workspaces}") String workspaceRoot
+        @Value("${codeagentx.workspace.root:../.codeagentx/control-plane/workspaces}") String workspaceRoot,
+        @Value("${codeagentx.callbacks.enabled:false}") boolean callbacksEnabled
     ) {
         this.dataSource = dataSource;
         this.runtimeClient = runtimeClient;
         this.signatureVerifier = signatureVerifier;
         this.publisherMode = publisherMode;
         this.workspaceRoot = workspaceRoot;
+        this.callbacksEnabled = callbacksEnabled;
     }
 
     @GetMapping("/health")
@@ -47,6 +50,7 @@ public class HealthController {
         response.put("runtimeBaseUrl", runtimeClient.getBaseUrl());
         response.put("publisherMode", publisherMode);
         response.put("workspaceRoot", workspaceRoot);
+        response.put("callbacksEnabled", callbacksEnabled);
         response.put("webhookSignatureRequired", signatureVerifier.isRequired());
         return response;
     }

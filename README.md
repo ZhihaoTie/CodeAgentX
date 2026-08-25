@@ -241,9 +241,9 @@ The generic REST adapter is the second task-source boundary next to GitHub webho
 
 Every control-plane HTTP request returns `X-Request-Id`. If the caller provides the header, CodeAgent-X echoes it; otherwise the control plane generates one and places it in the logging MDC as `request_id` for basic cross-request troubleshooting.
 
-`/api/metrics` exposes a lightweight operational snapshot with run counts, status distribution, active/terminal run totals, worker limits, runtime base URL, publisher mode, and workspace root.
+`/api/metrics` exposes a lightweight operational snapshot with run counts, status distribution, active/terminal run totals, worker limits, runtime base URL, publisher mode, callback enablement, and workspace root.
 
-Generic REST result callbacks are opt-in. When `CODEAGENTX_CALLBACKS_ENABLED=true` and a task has `resultCallbackUrl`, the control plane posts run status updates with `taskId`, `runId`, `externalTaskId`, status, runtime id, PR URL, and failure reason. Callback failures are isolated from the core run workflow.
+Generic REST result callbacks are opt-in. When `CODEAGENTX_CALLBACKS_ENABLED=true` and a task has `resultCallbackUrl`, the control plane posts run status updates with `taskId`, `runId`, `externalTaskId`, status, runtime id, PR URL, and failure reason. Callback failures are isolated from the core run workflow, and callback enablement is visible through health, metrics, and config preflight responses.
 
 ## GitHub publishing configuration
 

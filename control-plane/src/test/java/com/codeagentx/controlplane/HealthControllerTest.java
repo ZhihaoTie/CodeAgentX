@@ -24,7 +24,8 @@ class HealthControllerTest {
             new StubRuntimeClient(true),
             new GitHubWebhookSignatureVerifier("secret"),
             "noop",
-            "D:\\workspaces"
+            "D:\\workspaces",
+            true
         );
 
         assertThat(controller.health())
@@ -32,6 +33,7 @@ class HealthControllerTest {
             .containsEntry("database", "ok")
             .containsEntry("runtime", "ok")
             .containsEntry("publisherMode", "noop")
+            .containsEntry("callbacksEnabled", true)
             .containsEntry("webhookSignatureRequired", true);
     }
 
@@ -46,7 +48,8 @@ class HealthControllerTest {
             new StubRuntimeClient(false),
             new GitHubWebhookSignatureVerifier(""),
             "github",
-            "D:\\workspaces"
+            "D:\\workspaces",
+            false
         );
 
         assertThat(controller.health())
@@ -54,6 +57,7 @@ class HealthControllerTest {
             .containsEntry("database", "ok")
             .containsEntry("runtime", "unavailable")
             .containsEntry("publisherMode", "github")
+            .containsEntry("callbacksEnabled", false)
             .containsEntry("webhookSignatureRequired", false);
     }
 

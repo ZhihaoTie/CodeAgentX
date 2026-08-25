@@ -21,6 +21,7 @@ public class MetricsController {
     private final RuntimeClient runtimeClient;
     private final String publisherMode;
     private final String workspaceRoot;
+    private final boolean callbacksEnabled;
     private final int workerCorePoolSize;
     private final int workerMaxPoolSize;
     private final int workerQueueCapacity;
@@ -30,6 +31,7 @@ public class MetricsController {
         RuntimeClient runtimeClient,
         @Value("${codeagentx.publisher.mode:noop}") String publisherMode,
         @Value("${codeagentx.workspace.root:../.codeagentx/control-plane/workspaces}") String workspaceRoot,
+        @Value("${codeagentx.callbacks.enabled:false}") boolean callbacksEnabled,
         @Value("${codeagentx.worker.core-pool-size:2}") int workerCorePoolSize,
         @Value("${codeagentx.worker.max-pool-size:2}") int workerMaxPoolSize,
         @Value("${codeagentx.worker.queue-capacity:100}") int workerQueueCapacity
@@ -38,6 +40,7 @@ public class MetricsController {
         this.runtimeClient = runtimeClient;
         this.publisherMode = publisherMode;
         this.workspaceRoot = workspaceRoot;
+        this.callbacksEnabled = callbacksEnabled;
         this.workerCorePoolSize = workerCorePoolSize;
         this.workerMaxPoolSize = workerMaxPoolSize;
         this.workerQueueCapacity = workerQueueCapacity;
@@ -65,6 +68,7 @@ public class MetricsController {
         response.put("worker", workerMetrics());
         response.put("runtime", runtimeMetrics());
         response.put("publisher", publisherMetrics());
+        response.put("callbacks", callbackMetrics());
         response.put("workspace", workspaceMetrics());
         return response;
     }
@@ -96,6 +100,12 @@ public class MetricsController {
         Map<String, Object> publisher = new LinkedHashMap<String, Object>();
         publisher.put("mode", publisherMode);
         return publisher;
+    }
+
+    private Map<String, Object> callbackMetrics() {
+        Map<String, Object> callbacks = new LinkedHashMap<String, Object>();
+        callbacks.put("enabled", callbacksEnabled);
+        return callbacks;
     }
 
     private Map<String, Object> workspaceMetrics() {

@@ -259,8 +259,8 @@ Patch artifact model for diff / tests / changed files / trajectory evidence
 Deterministic local control-plane smoke demo: task -> review -> noop PR
 Deterministic smoke demo now also drives GitHub `workflow_run` CI writeback from PR_CREATED -> CI_RUNNING -> SUCCEEDED
 Smoke Spring profile: local demos can run with an in-memory H2 database, noop publisher, short polling, quieter SQL logging, and fake runtime URL without requiring PostgreSQL
-Operational health endpoint: `/api/health` reports database connectivity, Python runtime reachability, publisher mode, workspace root, and whether GitHub webhook signature verification is required
-Configuration preflight endpoint: `/api/config/preflight` reports whether real GitHub publishing is configured without exposing token values
+Operational health endpoint: `/api/health` reports database connectivity, Python runtime reachability, publisher mode, workspace root, callback enablement, and whether GitHub webhook signature verification is required
+Configuration preflight endpoint: `/api/config/preflight` reports whether real GitHub publishing and callback settings are configured without exposing token values
 Target repository REST smoke script: `demos/run_target_repo_rest_smoke.py` submits `https://github.com/ZhihaoTie/CodeAgent.git` through the real task intake path
 Target repository issue webhook smoke script: `demos/run_target_repo_issue_webhook_smoke.py` submits the same target through `/api/webhooks/github` with GitHub-style `issues` headers and payload
 Duplicate issue webhook smoke script: `demos/run_duplicate_issue_webhook_smoke.py` replays the same `X-GitHub-Delivery` twice and asserts both responses return the same run id
@@ -283,8 +283,8 @@ GitHub workflow_run CI writeback: workflow run webhooks are matched by `head_bra
 GitHub webhook signature verification: optional HMAC-SHA256 validation is enforced when `CODEAGENTX_GITHUB_WEBHOOK_SECRET` is configured, while local demos remain frictionless when it is unset
 Generic REST adapter endpoint: `POST /api/adapters/generic/tasks` accepts non-GitHub external tasks, maps them into the same `TaskExecutionSpec`, stores external task/callback metadata, and deliberately leaves workspace ownership to the control plane.
 Basic request correlation: every control-plane HTTP response includes `X-Request-Id`, incoming request ids are echoed, missing ids are generated, and logs include MDC `request_id`.
-Basic metrics endpoint: `/api/metrics` exposes run totals, status counts, active/terminal run counts, worker limits, runtime base URL, publisher mode, and workspace root for lightweight operational visibility.
-Generic REST result callbacks: when `CODEAGENTX_CALLBACKS_ENABLED=true` and `resultCallbackUrl` is present, the control plane posts run status updates back to the external system while isolating callback failures from the core workflow.
+Basic metrics endpoint: `/api/metrics` exposes run totals, status counts, active/terminal run counts, worker limits, runtime base URL, publisher mode, callback enablement, and workspace root for lightweight operational visibility.
+Generic REST result callbacks: when `CODEAGENTX_CALLBACKS_ENABLED=true` and `resultCallbackUrl` is present, the control plane posts run status updates back to the external system while isolating callback failures from the core workflow; callback enablement is also visible in health, metrics, and preflight responses.
 ```
 
 Current local validation:

@@ -30,6 +30,7 @@ class MetricsControllerTest {
             new RuntimeClient(new RestTemplate(), "http://runtime.test"),
             "noop",
             "D:\\workspaces",
+            true,
             2,
             4,
             25
@@ -41,6 +42,7 @@ class MetricsControllerTest {
         Map<String, Object> worker = (Map<String, Object>) metrics.get("worker");
         Map<String, Object> runtime = (Map<String, Object>) metrics.get("runtime");
         Map<String, Object> publisher = (Map<String, Object>) metrics.get("publisher");
+        Map<String, Object> callbacks = (Map<String, Object>) metrics.get("callbacks");
         Map<String, Object> workspace = (Map<String, Object>) metrics.get("workspace");
 
         assertThat(metrics.get("generatedAt")).isInstanceOf(String.class);
@@ -51,6 +53,7 @@ class MetricsControllerTest {
         assertThat(worker).containsEntry("corePoolSize", 2).containsEntry("maxPoolSize", 4).containsEntry("queueCapacity", 25);
         assertThat(runtime).containsEntry("baseUrl", "http://runtime.test");
         assertThat(publisher).containsEntry("mode", "noop");
+        assertThat(callbacks).containsEntry("enabled", true);
         assertThat(workspace).containsEntry("root", "D:\\workspaces");
     }
 }

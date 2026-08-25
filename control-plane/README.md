@@ -28,7 +28,7 @@ Operational readiness can be checked with:
 curl http://127.0.0.1:8080/api/health
 ```
 
-The health response reports database connectivity, Python runtime reachability, runtime base URL, publisher mode, workspace root, and whether GitHub webhook signature verification is required.
+The health response reports database connectivity, Python runtime reachability, runtime base URL, publisher mode, workspace root, callback enablement, and whether GitHub webhook signature verification is required.
 
 Configuration readiness for real GitHub publishing can be checked with:
 
@@ -36,7 +36,7 @@ Configuration readiness for real GitHub publishing can be checked with:
 curl http://127.0.0.1:8080/api/config/preflight
 ```
 
-The preflight response reports whether the GitHub token, base branch, remote name, optional global repository, and webhook secret are configured without exposing secret values. If no global repository is configured, real GitHub publishing can still be ready as long as each task provides `repositoryFullName`; the endpoint returns that case as a warning.
+The preflight response reports whether the GitHub token, base branch, remote name, optional global repository, webhook secret, and result callback setting are configured without exposing secret values. If no global repository is configured, real GitHub publishing can still be ready as long as each task provides `repositoryFullName`; the endpoint returns that case as a warning.
 
 Run state can be summarized with:
 

@@ -22,11 +22,13 @@ class ConfigPreflightControllerTest {
             "origin",
             "secret",
             "http://127.0.0.1:8765",
-            "D:\\workspaces"
+            "D:\\workspaces",
+            true
         );
 
         Map<String, Object> response = controller.preflight();
         Map<String, Object> github = (Map<String, Object>) response.get("github");
+        Map<String, Object> callbacks = (Map<String, Object>) response.get("callbacks");
         List<String> missing = (List<String>) response.get("missing");
         List<String> warnings = (List<String>) response.get("warnings");
 
@@ -35,6 +37,7 @@ class ConfigPreflightControllerTest {
             .containsEntry("tokenConfigured", false)
             .containsEntry("repositoryConfigured", false)
             .containsEntry("webhookSignatureRequired", true);
+        assertThat(callbacks).containsEntry("enabled", true);
         assertThat(missing).contains("codeagentx.github.token");
         assertThat(warnings)
             .contains("codeagentx.github.repository is not configured; each task must provide repositoryFullName");
@@ -53,11 +56,13 @@ class ConfigPreflightControllerTest {
             "origin",
             "",
             "http://127.0.0.1:8765",
-            "D:\\workspaces"
+            "D:\\workspaces",
+            false
         );
 
         Map<String, Object> response = controller.preflight();
         Map<String, Object> github = (Map<String, Object>) response.get("github");
+        Map<String, Object> callbacks = (Map<String, Object>) response.get("callbacks");
         List<String> missing = (List<String>) response.get("missing");
         List<String> warnings = (List<String>) response.get("warnings");
 
@@ -65,6 +70,7 @@ class ConfigPreflightControllerTest {
         assertThat(github)
             .containsEntry("tokenConfigured", false)
             .containsEntry("webhookSignatureRequired", false);
+        assertThat(callbacks).containsEntry("enabled", false);
         assertThat(missing).isEmpty();
         assertThat(warnings).isEmpty();
     }
@@ -82,7 +88,8 @@ class ConfigPreflightControllerTest {
             "origin",
             "",
             "http://127.0.0.1:8765",
-            "D:\\workspaces"
+            "D:\\workspaces",
+            true
         );
 
         Map<String, Object> response = controller.preflight();
