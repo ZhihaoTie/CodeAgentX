@@ -1,0 +1,14 @@
+services:
+  runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile.runtime.local
+
+  control-plane:
+    build:
+      context: ./control-plane
+      dockerfile: Dockerfile.prebuilt
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - java -version >/dev/null 2>&1

@@ -255,7 +255,7 @@ docker compose up -d --build
 python demos/run_compose_smoke.py
 ```
 
-See [docs/deployment-compose.md](docs/deployment-compose.md) for the topology, trust boundaries, environment settings, and operational validation checklist.
+See [docs/deployment-compose.md](docs/deployment-compose.md) for the topology, trust boundaries, environment settings, local prebuilt override, and operational validation checklist.
 
 ## GitHub publishing configuration
 

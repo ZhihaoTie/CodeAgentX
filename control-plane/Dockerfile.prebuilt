@@ -1,0 +1,14 @@
+FROM eclipse-temurin:17-jre
+
+WORKDIR /app
+RUN useradd --create-home --shell /bin/bash codeagentx \
+    && mkdir -p /workspaces \
+    && chown -R codeagentx:codeagentx /app /workspaces
+
+COPY target/control-plane-0.1.0-SNAPSHOT.jar /app/control-plane.jar
+
+USER codeagentx
+
+EXPOSE 8080
+
+CMD ["java", "-jar", "/app/control-plane.jar"]

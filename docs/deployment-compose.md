@@ -32,6 +32,20 @@ docker compose up -d --build
 python demos/run_compose_smoke.py
 ```
 
+## Local prebuilt override
+
+When Docker Hub or Maven builder layers are slow on a development machine, you can validate the same three-service runtime shape with a locally built control-plane jar:
+
+```bash
+cd control-plane
+./mvnw -q -DskipTests package
+cd ..
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+python demos/run_compose_smoke.py
+```
+
+This override is for local validation only. The main `docker-compose.yml` remains the clean-machine path.
+
 The smoke script is read-only. It checks:
 
 - `/api/health`
