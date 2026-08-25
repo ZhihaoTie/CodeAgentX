@@ -110,7 +110,7 @@ Then verify the deployment behavior you care about:
 4. Duplicate webhook: replay the same GitHub delivery id and confirm it maps to one task/run.
 5. Timeout: run a deterministic timeout case and confirm the run fails cleanly.
 6. Concurrency: lower worker limits and confirm extra tasks wait instead of running unbounded.
-7. Generic adapter: submit through `/api/adapters/generic/tasks` and, if enabled, verify result callback delivery.
+7. Generic adapter: run `python demos/run_compose_generic_callback_smoke.py` with callbacks enabled to verify external task intake, mock runtime execution, and result callback delivery.
 8. Real GitHub flow: Issue -> webhook -> task -> runtime -> review -> PR -> CI writeback.
 
 ## Shutdown

@@ -5,12 +5,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class RuntimeRunRequest {
     private String task;
     private String provider;
+    private String model;
 
     @JsonProperty("permission_mode")
     private String permissionMode;
 
     @JsonProperty("max_turns")
     private Integer maxTurns;
+
+    @JsonProperty("max_run_seconds")
+    private Double maxRunSeconds;
 
     @JsonProperty("verification_command")
     private String verificationCommand;
@@ -42,6 +46,14 @@ public class RuntimeRunRequest {
         this.provider = provider;
     }
 
+    public String getModel() {
+        return model;
+    }
+
+    public void setModel(String model) {
+        this.model = model;
+    }
+
     public String getPermissionMode() {
         return permissionMode;
     }
@@ -56,6 +68,14 @@ public class RuntimeRunRequest {
 
     public void setMaxTurns(Integer maxTurns) {
         this.maxTurns = maxTurns;
+    }
+
+    public Double getMaxRunSeconds() {
+        return maxRunSeconds;
+    }
+
+    public void setMaxRunSeconds(Double maxRunSeconds) {
+        this.maxRunSeconds = maxRunSeconds;
     }
 
     public String getVerificationCommand() {

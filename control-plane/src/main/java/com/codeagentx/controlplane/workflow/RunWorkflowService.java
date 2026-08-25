@@ -177,7 +177,12 @@ public class RunWorkflowService {
             spec.getWorkspaceRoot(),
             spec.getVerificationCommand(),
             spec.getExternalTaskId(),
-            spec.getResultCallbackUrl()
+            spec.getResultCallbackUrl(),
+            spec.getProvider(),
+            spec.getModel(),
+            spec.getMaxTurns(),
+            spec.getMaxRunSeconds(),
+            spec.getPermissionMode()
         ));
         RunRecord run = new RunRecord(task.getTaskId());
         run.setStatus(RunStatus.QUEUED);
@@ -271,6 +276,13 @@ public class RunWorkflowService {
                     run.setExecutionWorkspaceRoot(workspace.getWorkspaceRoot());
                 }
                 request.setVerificationCommand(task.getVerificationCommand());
+                request.setProvider(task.getProvider());
+                request.setModel(task.getModel());
+                request.setMaxTurns(task.getMaxTurns());
+                request.setMaxRunSeconds(task.getMaxRunSeconds());
+                if (task.getPermissionMode() != null) {
+                    request.setPermissionMode(task.getPermissionMode());
+                }
             }
             RuntimeRunResponse response = submitRunWithRetry(run, request);
             if (response != null) {

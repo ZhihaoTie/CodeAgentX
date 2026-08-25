@@ -17,7 +17,12 @@ public class GenericRestTaskAdapter {
             null,
             request.getVerificationCommand(),
             request.getExternalTaskId(),
-            request.getResultCallbackUrl()
+            request.getResultCallbackUrl(),
+            request.getProvider(),
+            request.getModel(),
+            request.getMaxTurns(),
+            request.getMaxRunSeconds(),
+            request.getPermissionMode()
         );
     }
 }

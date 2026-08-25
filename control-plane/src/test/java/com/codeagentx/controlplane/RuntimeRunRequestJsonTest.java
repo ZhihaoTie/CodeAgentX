@@ -10,15 +10,21 @@ class RuntimeRunRequestJsonTest {
     @Test
     void serializesRuntimeConfigWithPythonApiFieldNames() throws Exception {
         RuntimeRunRequest request = new RuntimeRunRequest("Fix the failing test.");
+        request.setProvider("mock");
+        request.setModel("mock-model");
         request.setPermissionMode("auto");
         request.setMaxTurns(12);
+        request.setMaxRunSeconds(5.5);
         request.setWorkspaceRoot("D:\\workspaces\\repo");
         request.setVerificationCommand("mvn test");
 
         String json = new ObjectMapper().writeValueAsString(request);
 
+        assertThat(json).contains("\"provider\":\"mock\"");
+        assertThat(json).contains("\"model\":\"mock-model\"");
         assertThat(json).contains("\"permission_mode\":\"auto\"");
         assertThat(json).contains("\"max_turns\":12");
+        assertThat(json).contains("\"max_run_seconds\":5.5");
         assertThat(json).contains("\"workspace_root\":\"D:\\\\workspaces\\\\repo\"");
         assertThat(json).contains("\"verification_command\":\"mvn test\"");
     }

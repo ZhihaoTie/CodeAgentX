@@ -56,6 +56,21 @@ public class TaskRecord {
     @Column(name = "result_callback_url", length = 1024)
     private String resultCallbackUrl;
 
+    @Column(name = "provider", length = 64)
+    private String provider;
+
+    @Column(name = "model", length = 128)
+    private String model;
+
+    @Column(name = "max_turns")
+    private Integer maxTurns;
+
+    @Column(name = "max_run_seconds")
+    private Double maxRunSeconds;
+
+    @Column(name = "permission_mode", length = 64)
+    private String permissionMode;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -81,7 +96,7 @@ public class TaskRecord {
         String workspaceRoot,
         String verificationCommand
     ) {
-        this(source, title, body, idempotencyKey, repositoryUrl, repositoryFullName, baseBranch, workspaceRoot, verificationCommand, null, null);
+        this(source, title, body, idempotencyKey, repositoryUrl, repositoryFullName, baseBranch, workspaceRoot, verificationCommand, null, null, null, null, null, null, null);
     }
 
     public TaskRecord(
@@ -97,6 +112,27 @@ public class TaskRecord {
         String externalTaskId,
         String resultCallbackUrl
     ) {
+        this(source, title, body, idempotencyKey, repositoryUrl, repositoryFullName, baseBranch, workspaceRoot, verificationCommand, externalTaskId, resultCallbackUrl, null, null, null, null, null);
+    }
+
+    public TaskRecord(
+        String source,
+        String title,
+        String body,
+        String idempotencyKey,
+        String repositoryUrl,
+        String repositoryFullName,
+        String baseBranch,
+        String workspaceRoot,
+        String verificationCommand,
+        String externalTaskId,
+        String resultCallbackUrl,
+        String provider,
+        String model,
+        Integer maxTurns,
+        Double maxRunSeconds,
+        String permissionMode
+    ) {
         this.taskId = UUID.randomUUID().toString();
         this.source = blankToDefault(source, "rest");
         this.title = title;
@@ -109,6 +145,11 @@ public class TaskRecord {
         this.verificationCommand = blankToNull(verificationCommand);
         this.externalTaskId = blankToNull(externalTaskId);
         this.resultCallbackUrl = blankToNull(resultCallbackUrl);
+        this.provider = blankToNull(provider);
+        this.model = blankToNull(model);
+        this.maxTurns = maxTurns;
+        this.maxRunSeconds = maxRunSeconds;
+        this.permissionMode = blankToNull(permissionMode);
         this.createdAt = Instant.now();
     }
 
@@ -125,6 +166,11 @@ public class TaskRecord {
     public String getVerificationCommand() { return verificationCommand; }
     public String getExternalTaskId() { return externalTaskId; }
     public String getResultCallbackUrl() { return resultCallbackUrl; }
+    public String getProvider() { return provider; }
+    public String getModel() { return model; }
+    public Integer getMaxTurns() { return maxTurns; }
+    public Double getMaxRunSeconds() { return maxRunSeconds; }
+    public String getPermissionMode() { return permissionMode; }
 
     private String normalizeIdempotencyKey(String idempotencyKey) {
         if (idempotencyKey == null) {

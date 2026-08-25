@@ -68,7 +68,14 @@ class RunWorkflowServiceTest {
             "acme/repo",
             "main",
             "D:\\workspaces\\repo",
-            "py -3.13 -B -m pytest tests/test_bug.py"
+            "py -3.13 -B -m pytest tests/test_bug.py",
+            null,
+            null,
+            "mock",
+            "mock-model",
+            3,
+            20.5,
+            "manual"
         ));
 
         assertThat(runtimeClient.submittedRequests).hasSize(1);
@@ -77,6 +84,11 @@ class RunWorkflowServiceTest {
         assertThat(request.getTask()).contains("Base branch: main");
         assertThat(request.getWorkspaceRoot()).isEqualTo("D:\\workspaces\\repo");
         assertThat(request.getVerificationCommand()).isEqualTo("py -3.13 -B -m pytest tests/test_bug.py");
+        assertThat(request.getProvider()).isEqualTo("mock");
+        assertThat(request.getModel()).isEqualTo("mock-model");
+        assertThat(request.getMaxTurns()).isEqualTo(3);
+        assertThat(request.getMaxRunSeconds()).isEqualTo(20.5);
+        assertThat(request.getPermissionMode()).isEqualTo("manual");
     }
 
     @Test

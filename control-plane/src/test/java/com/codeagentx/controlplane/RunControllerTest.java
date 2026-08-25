@@ -41,7 +41,7 @@ class RunControllerTest {
 
         mockMvc.perform(post("/api/adapters/generic/tasks")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"title\":\"Fix parser\",\"body\":\"Parser should ignore blank lines.\",\"idempotencyKey\":\"external-delivery-1\",\"externalTaskId\":\"ticket-42\",\"resultCallbackUrl\":\"https://example.com/callbacks/42\",\"repositoryUrl\":\"https://github.com/acme/repo.git\",\"repositoryFullName\":\"acme/repo\",\"baseBranch\":\"main\",\"verificationCommand\":\"pytest -q\",\"workspaceRoot\":\"D:/should/not/be/trusted\"}"))
+                .content("{\"title\":\"Fix parser\",\"body\":\"Parser should ignore blank lines.\",\"idempotencyKey\":\"external-delivery-1\",\"externalTaskId\":\"ticket-42\",\"resultCallbackUrl\":\"https://example.com/callbacks/42\",\"repositoryUrl\":\"https://github.com/acme/repo.git\",\"repositoryFullName\":\"acme/repo\",\"baseBranch\":\"main\",\"verificationCommand\":\"pytest -q\",\"workspaceRoot\":\"D:/should/not/be/trusted\",\"provider\":\"mock\",\"model\":\"mock-model\",\"maxTurns\":2,\"maxRunSeconds\":15.5,\"permissionMode\":\"auto\"}"))
             .andExpect(status().isAccepted());
 
         ArgumentCaptor<TaskExecutionSpec> specCaptor = ArgumentCaptor.forClass(TaskExecutionSpec.class);
@@ -52,6 +52,11 @@ class RunControllerTest {
         assertThat(spec.getResultCallbackUrl()).isEqualTo("https://example.com/callbacks/42");
         assertThat(spec.getRepositoryFullName()).isEqualTo("acme/repo");
         assertThat(spec.getWorkspaceRoot()).isNull();
+        assertThat(spec.getProvider()).isEqualTo("mock");
+        assertThat(spec.getModel()).isEqualTo("mock-model");
+        assertThat(spec.getMaxTurns()).isEqualTo(2);
+        assertThat(spec.getMaxRunSeconds()).isEqualTo(15.5);
+        assertThat(spec.getPermissionMode()).isEqualTo("auto");
     }
 
     @Test

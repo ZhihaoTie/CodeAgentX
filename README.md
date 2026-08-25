@@ -213,6 +213,9 @@ py -3.13 -B demos/run_concurrency_limit_smoke.py
 | Stuck runtime timeout | `py -3.13 -B demos/run_timeout_smoke.py` |
 | Runtime submit retry | `py -3.13 -B demos/run_runtime_submit_retry_smoke.py` |
 | Worker concurrency limit | `py -3.13 -B demos/run_concurrency_limit_smoke.py` |
+| Compose deployment smoke | `py -3.13 -B demos/run_compose_smoke.py` |
+| Compose restart smoke | `py -3.13 -B demos/run_compose_restart_smoke.py` |
+| Compose Generic REST callback smoke | `py -3.13 -B demos/run_compose_generic_callback_smoke.py` |
 | Real target-repository E2E record | `docs/e2e-github-target.md` |
 
 The reliability smokes use fake runtimes where appropriate. This makes the failure modes deterministic and locally reproducible instead of depending on live external failures.
@@ -237,7 +240,7 @@ GET  /api/config/preflight
 POST /api/webhooks/github
 ```
 
-The generic REST adapter is the second task-source boundary next to GitHub webhooks. It accepts external task metadata such as `externalTaskId` and `resultCallbackUrl`, converts the request into the same internal `TaskExecutionSpec`, and deliberately does not accept external workspace control; workspace preparation remains owned by the control plane.
+The generic REST adapter is the second task-source boundary next to GitHub webhooks. It accepts external task metadata such as `externalTaskId` and `resultCallbackUrl`, plus bounded runtime overrides such as `provider`, `model`, `maxTurns`, `maxRunSeconds`, and `permissionMode`. It converts the request into the same internal `TaskExecutionSpec` and deliberately does not accept external workspace control; workspace preparation remains owned by the control plane.
 
 Every control-plane HTTP request returns `X-Request-Id`. If the caller provides the header, CodeAgent-X echoes it; otherwise the control plane generates one and places it in the logging MDC as `request_id` for basic cross-request troubleshooting.
 

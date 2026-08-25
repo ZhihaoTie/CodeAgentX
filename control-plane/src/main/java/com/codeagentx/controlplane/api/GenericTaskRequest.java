@@ -16,6 +16,11 @@ public class GenericTaskRequest {
     private String repositoryFullName;
     private String baseBranch;
     private String verificationCommand;
+    private String provider;
+    private String model;
+    private Integer maxTurns;
+    private Double maxRunSeconds;
+    private String permissionMode;
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -43,4 +48,19 @@ public class GenericTaskRequest {
 
     public String getVerificationCommand() { return verificationCommand; }
     public void setVerificationCommand(String verificationCommand) { this.verificationCommand = verificationCommand; }
+
+    public String getProvider() { return provider; }
+    public void setProvider(String provider) { this.provider = provider; }
+
+    public String getModel() { return model; }
+    public void setModel(String model) { this.model = model; }
+
+    public Integer getMaxTurns() { return maxTurns; }
+    public void setMaxTurns(Integer maxTurns) { this.maxTurns = maxTurns; }
+
+    public Double getMaxRunSeconds() { return maxRunSeconds; }
+    public void setMaxRunSeconds(Double maxRunSeconds) { this.maxRunSeconds = maxRunSeconds; }
+
+    public String getPermissionMode() { return permissionMode; }
+    public void setPermissionMode(String permissionMode) { this.permissionMode = permissionMode; }
 }

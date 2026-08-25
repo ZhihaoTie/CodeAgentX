@@ -273,7 +273,7 @@ Run summary endpoint: `/api/runs/summary` reports total runs, counts by status, 
 Run cancellation endpoint: `/api/runs/{runId}/cancel` marks non-terminal runs as `CANCELLED`, records a cancellation event, and avoids submitting already-cancelled queued runs to the runtime
 Run timeline endpoint: `/api/runs/{runId}/timeline` combines persisted run events and review decisions into a lightweight audit trail
 Run artifact endpoint: `/api/runs/{runId}/artifact` exposes patch/test evidence separately from the full run object for review and debugging
-Task execution metadata path: repository URL/full name, base branch, workspace root, verification command, external task id, and result callback URL can persist on Task and flow into the Python runtime/control-plane workflow
+Task execution metadata path: repository URL/full name, base branch, workspace root, verification command, external task id, result callback URL, provider, model, max turns, max run seconds, and permission mode can persist on Task and flow into the Python runtime/control-plane workflow
 WorkspacePreparer boundary with local Git workspace preparation: explicit workspace roots are validated, repository URLs can be cloned into a managed workspace root, base branches can be checked out, and workspace preparation failures stop the run before Python runtime submission
 Execution workspace tracking on Run plus local Git diff artifact collection: after runtime completion, the control plane can collect `git diff --binary` and `git status --porcelain` from the prepared workspace to strengthen or backfill patch evidence
 PatchBranchPreparer boundary: after human `AUTHORIZE_PR`, the control plane prepares and records a deterministic local patch branch such as `codeagentx/run-{runId}` before invoking the PR publisher
@@ -282,12 +282,13 @@ PatchPusher boundary: after local patch commit creation, the control plane pushe
 Multi-repository GitHub publishing: PR creation now receives both Run and Task context, prefers Task `repositoryFullName` and `baseBranch`, and falls back to global GitHub configuration only when task metadata is absent
 GitHub workflow_run CI writeback: workflow run webhooks are matched by `head_branch == patchBranch`, moving runs through `CI_RUNNING`, `SUCCEEDED`, or `FAILED`; duplicate CI writebacks do not duplicate final-text evidence
 GitHub webhook signature verification: optional HMAC-SHA256 validation is enforced when `CODEAGENTX_GITHUB_WEBHOOK_SECRET` is configured, while local demos remain frictionless when it is unset
-Generic REST adapter endpoint: `POST /api/adapters/generic/tasks` accepts non-GitHub external tasks, maps them into the same `TaskExecutionSpec`, stores external task/callback metadata, and deliberately leaves workspace ownership to the control plane.
+Generic REST adapter endpoint: `POST /api/adapters/generic/tasks` accepts non-GitHub external tasks, maps them into the same `TaskExecutionSpec`, stores external task/callback metadata, supports bounded runtime overrides, and deliberately leaves workspace ownership to the control plane.
 Basic request correlation: every control-plane HTTP response includes `X-Request-Id`, incoming request ids are echoed, missing ids are generated, and logs include MDC `request_id`.
 Basic metrics endpoint: `/api/metrics` exposes run totals, status counts, active/terminal run counts, worker limits, runtime base URL, publisher mode, callback enablement, and workspace root for lightweight operational visibility.
 Generic REST result callbacks: when `CODEAGENTX_CALLBACKS_ENABLED=true` and `resultCallbackUrl` is present, the control plane posts run status updates back to the external system while isolating callback failures from the core workflow; callback enablement is also visible in health, metrics, and preflight responses.
 Compose smoke script: `demos/run_compose_smoke.py` checks health, preflight, metrics, and request-id echo behavior against a running Compose deployment without mutating tasks or GitHub state. Compose smoke has been validated locally with PostgreSQL, Python Runtime, and Spring Boot Control Plane all healthy.
 Compose restart smoke script: `demos/run_compose_restart_smoke.py` restarts the Compose deployment, waits for recovery, and re-runs the read-only smoke checks.
+Compose Generic REST callback smoke script: `demos/run_compose_generic_callback_smoke.py` submits a controlled `provider=mock` task through the Generic REST adapter, receives the initial callback, refreshes runtime completion, and verifies the final `NEEDS_REVIEW` callback without creating a PR.
 ```
 
 Current local validation:
