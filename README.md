@@ -245,6 +245,18 @@ Every control-plane HTTP request returns `X-Request-Id`. If the caller provides 
 
 Generic REST result callbacks are opt-in. When `CODEAGENTX_CALLBACKS_ENABLED=true` and a task has `resultCallbackUrl`, the control plane posts run status updates with `taskId`, `runId`, `externalTaskId`, status, runtime id, PR URL, and failure reason. Callback failures are isolated from the core run workflow, and callback enablement is visible through health, metrics, and config preflight responses.
 
+## Docker Compose deployment
+
+CodeAgent-X includes a production-like single-node Docker Compose path for deployment validation. It starts PostgreSQL, the Python runtime, and the Spring Boot control plane with a shared `/workspaces` volume. Only the control-plane port is published by default; the Python runtime and PostgreSQL remain inside the Compose network.
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+python demos/run_compose_smoke.py
+```
+
+See [docs/deployment-compose.md](docs/deployment-compose.md) for the topology, trust boundaries, environment settings, and operational validation checklist.
+
 ## GitHub publishing configuration
 
 The real GitHub PR boundary is configuration-gated.

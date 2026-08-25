@@ -3,18 +3,90 @@ services:
     image: postgres:16
     container_name: codeagentx-postgres
     environment:
-      POSTGRES_DB: codeagentx
-      POSTGRES_USER: codeagentx
-      POSTGRES_PASSWORD: codeagentx
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${CODEAGENTX_DB_NAME:-codeagentx}
+      POSTGRES_USER: ${CODEAGENTX_DB_USERNAME:-codeagentx}
+      POSTGRES_PASSWORD: ${CODEAGENTX_DB_PASSWORD:-codeagentx}
     volumes:
       - codeagentx-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U codeagentx -d codeagentx"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile.runtime
+    container_name: codeagentx-runtime
+    environment:
+      CODEAGENTX_PROVIDER: ${CODEAGENTX_PROVIDER:-deepseek}
+      CODEAGENTX_MODEL: ${CODEAGENTX_MODEL:-deepseek-v4-pro}
+      CODEAGENTX_MAX_TOKENS: ${CODEAGENTX_MAX_TOKENS:-8192}
+      CODEAGENTX_API_TIMEOUT_SECONDS: ${CODEAGENTX_API_TIMEOUT_SECONDS:-120}
+      CODEAGENTX_API_MAX_RETRIES: ${CODEAGENTX_API_MAX_RETRIES:-2}
+      CODEAGENTX_API_RETRY_BACKOFF_SECONDS: ${CODEAGENTX_API_RETRY_BACKOFF_SECONDS:-1.0}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      DEEPSEEK_CHAT_PATH: ${DEEPSEEK_CHAT_PATH:-/chat/completions}
+    volumes:
+      - codeagentx-workspaces:/workspaces
+    expose:
+      - "8765"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "from urllib.request import urlopen; urlopen('http://127.0.0.1:8765/health', timeout=3).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  control-plane:
+    build:
+      context: ./control-plane
+      dockerfile: Dockerfile
+    container_name: codeagentx-control-plane
+    depends_on:
+      postgres:
+        condition: service_healthy
+      runtime:
+        condition: service_healthy
+    environment:
+      CODEAGENTX_DB_URL: jdbc:postgresql://postgres:5432/${CODEAGENTX_DB_NAME:-codeagentx}
+      CODEAGENTX_DB_USERNAME: ${CODEAGENTX_DB_USERNAME:-codeagentx}
+      CODEAGENTX_DB_PASSWORD: ${CODEAGENTX_DB_PASSWORD:-codeagentx}
+      CODEAGENTX_RUNTIME_BASE_URL: http://runtime:8765
+      CODEAGENTX_WORKSPACE_ROOT: /workspaces
+      CODEAGENTX_RUNTIME_POLL_DELAY_MS: ${CODEAGENTX_RUNTIME_POLL_DELAY_MS:-5000}
+      CODEAGENTX_RUNTIME_RUN_TIMEOUT_MS: ${CODEAGENTX_RUNTIME_RUN_TIMEOUT_MS:-1800000}
+      CODEAGENTX_RUNTIME_SUBMIT_MAX_ATTEMPTS: ${CODEAGENTX_RUNTIME_SUBMIT_MAX_ATTEMPTS:-1}
+      CODEAGENTX_RUNTIME_SUBMIT_RETRY_BACKOFF_MS: ${CODEAGENTX_RUNTIME_SUBMIT_RETRY_BACKOFF_MS:-0}
+      CODEAGENTX_WORKER_CORE_POOL_SIZE: ${CODEAGENTX_WORKER_CORE_POOL_SIZE:-2}
+      CODEAGENTX_WORKER_MAX_POOL_SIZE: ${CODEAGENTX_WORKER_MAX_POOL_SIZE:-2}
+      CODEAGENTX_WORKER_QUEUE_CAPACITY: ${CODEAGENTX_WORKER_QUEUE_CAPACITY:-100}
+      CODEAGENTX_PUBLISHER_MODE: ${CODEAGENTX_PUBLISHER_MODE:-noop}
+      CODEAGENTX_CALLBACKS_ENABLED: ${CODEAGENTX_CALLBACKS_ENABLED:-false}
+      CODEAGENTX_GITHUB_API_BASE_URL: ${CODEAGENTX_GITHUB_API_BASE_URL:-https://api.github.com}
+      CODEAGENTX_GITHUB_TOKEN: ${CODEAGENTX_GITHUB_TOKEN:-}
+      CODEAGENTX_GITHUB_REPOSITORY: ${CODEAGENTX_GITHUB_REPOSITORY:-}
+      CODEAGENTX_GITHUB_BASE_BRANCH: ${CODEAGENTX_GITHUB_BASE_BRANCH:-main}
+      CODEAGENTX_GITHUB_REMOTE_NAME: ${CODEAGENTX_GITHUB_REMOTE_NAME:-origin}
+      CODEAGENTX_GITHUB_HEAD_BRANCH_PREFIX: ${CODEAGENTX_GITHUB_HEAD_BRANCH_PREFIX:-codeagentx/run-}
+      CODEAGENTX_GITHUB_WEBHOOK_SECRET: ${CODEAGENTX_GITHUB_WEBHOOK_SECRET:-}
+      CODEAGENTX_GITHUB_DEFAULT_VERIFICATION_COMMAND: ${CODEAGENTX_GITHUB_DEFAULT_VERIFICATION_COMMAND:-python -m unittest discover -s tests -v}
+    volumes:
+      - codeagentx-workspaces:/workspaces
+    ports:
+      - "${CODEAGENTX_CONTROL_PLANE_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/api/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
 volumes:
   codeagentx-postgres-data:
+  codeagentx-workspaces:

@@ -1,0 +1,13 @@
+.git
+.codeagentx
+.agents
+.codex
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.venv
+venv
+.env
+control-plane/target
