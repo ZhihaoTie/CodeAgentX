@@ -1,5 +1,7 @@
 package com.codeagentx.controlplane.workflow;
 
+import com.codeagentx.controlplane.callback.NoopResultCallbackNotifier;
+import com.codeagentx.controlplane.callback.ResultCallbackNotifier;
 import com.codeagentx.controlplane.domain.ReviewDecision;
 import com.codeagentx.controlplane.domain.ReviewRecord;
 import com.codeagentx.controlplane.domain.PatchArtifact;
@@ -43,6 +45,7 @@ public class RunWorkflowService {
     private final int runtimeSubmitMaxAttempts;
     private final Duration runtimeSubmitRetryBackoff;
     private final ResultPublisher resultPublisher;
+    private final ResultCallbackNotifier resultCallbackNotifier;
     private final WorkspacePreparer workspacePreparer;
     private final GitDiffCollector gitDiffCollector;
     private final PatchBranchPreparer patchBranchPreparer;
@@ -50,15 +53,15 @@ public class RunWorkflowService {
     private final PatchPusher patchPusher;
 
     public RunWorkflowService(RunRepositoryPort repository, RuntimeClient runtimeClient) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), new NoopWorkspacePreparer(), new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), new NoopResultCallbackNotifier(), new NoopWorkspacePreparer(), new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
     }
 
     public RunWorkflowService(RunRepositoryPort repository, RuntimeClient runtimeClient, long runTimeoutMs) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), runTimeoutMs, 1, 0L, new NoopTestResultPublisher(), new NoopWorkspacePreparer(), new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), runTimeoutMs, 1, 0L, new NoopTestResultPublisher(), new NoopResultCallbackNotifier(), new NoopWorkspacePreparer(), new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
     }
 
     public RunWorkflowService(RunRepositoryPort repository, RuntimeClient runtimeClient, long runTimeoutMs, int runtimeSubmitMaxAttempts, long runtimeSubmitRetryBackoffMs) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), runTimeoutMs, runtimeSubmitMaxAttempts, runtimeSubmitRetryBackoffMs, new NoopTestResultPublisher(), new NoopWorkspacePreparer(), new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), runTimeoutMs, runtimeSubmitMaxAttempts, runtimeSubmitRetryBackoffMs, new NoopTestResultPublisher(), new NoopResultCallbackNotifier(), new NoopWorkspacePreparer(), new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
     }
 
     public RunWorkflowService(
@@ -66,7 +69,7 @@ public class RunWorkflowService {
         RuntimeClient runtimeClient,
         WorkspacePreparer workspacePreparer
     ) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), workspacePreparer, new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), new NoopResultCallbackNotifier(), workspacePreparer, new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
     }
 
     public RunWorkflowService(
@@ -75,7 +78,7 @@ public class RunWorkflowService {
         WorkspacePreparer workspacePreparer,
         GitDiffCollector gitDiffCollector
     ) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), workspacePreparer, gitDiffCollector, new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), new NoopResultCallbackNotifier(), workspacePreparer, gitDiffCollector, new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
     }
 
     public RunWorkflowService(
@@ -85,7 +88,7 @@ public class RunWorkflowService {
         GitDiffCollector gitDiffCollector,
         PatchBranchPreparer patchBranchPreparer
     ) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), workspacePreparer, gitDiffCollector, patchBranchPreparer, new NoopPatchCommitter(), new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), new NoopResultCallbackNotifier(), workspacePreparer, gitDiffCollector, patchBranchPreparer, new NoopPatchCommitter(), new NoopPatchPusher());
     }
 
     public RunWorkflowService(
@@ -96,7 +99,7 @@ public class RunWorkflowService {
         PatchBranchPreparer patchBranchPreparer,
         PatchCommitter patchCommitter
     ) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), workspacePreparer, gitDiffCollector, patchBranchPreparer, patchCommitter, new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), new NoopResultCallbackNotifier(), workspacePreparer, gitDiffCollector, patchBranchPreparer, patchCommitter, new NoopPatchPusher());
     }
 
     public RunWorkflowService(
@@ -108,7 +111,7 @@ public class RunWorkflowService {
         PatchCommitter patchCommitter,
         PatchPusher patchPusher
     ) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), workspacePreparer, gitDiffCollector, patchBranchPreparer, patchCommitter, patchPusher);
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), new NoopResultCallbackNotifier(), workspacePreparer, gitDiffCollector, patchBranchPreparer, patchCommitter, patchPusher);
     }
 
     @Autowired
@@ -121,6 +124,7 @@ public class RunWorkflowService {
         @Value("${codeagentx.runtime.submit-max-attempts:1}") int runtimeSubmitMaxAttempts,
         @Value("${codeagentx.runtime.submit-retry-backoff-ms:0}") long runtimeSubmitRetryBackoffMs,
         ResultPublisher resultPublisher,
+        ResultCallbackNotifier resultCallbackNotifier,
         WorkspacePreparer workspacePreparer,
         GitDiffCollector gitDiffCollector,
         PatchBranchPreparer patchBranchPreparer,
@@ -135,6 +139,7 @@ public class RunWorkflowService {
         this.runtimeSubmitMaxAttempts = Math.max(1, runtimeSubmitMaxAttempts);
         this.runtimeSubmitRetryBackoff = Duration.ofMillis(Math.max(0L, runtimeSubmitRetryBackoffMs));
         this.resultPublisher = resultPublisher;
+        this.resultCallbackNotifier = resultCallbackNotifier;
         this.workspacePreparer = workspacePreparer;
         this.gitDiffCollector = gitDiffCollector;
         this.patchBranchPreparer = patchBranchPreparer;
@@ -452,8 +457,18 @@ public class RunWorkflowService {
 
     private RunRecord saveAndPublish(RunRecord run) {
         RunRecord saved = repository.saveRun(run);
+        notifyResultCallback(saved);
         eventStreamHub.publish(saved);
         return saved;
+    }
+
+    private void notifyResultCallback(RunRecord run) {
+        try {
+            TaskRecord task = repository.getTask(run.getTaskId());
+            resultCallbackNotifier.notifyRunUpdated(run, task);
+        } catch (Exception ignored) {
+            // Callback delivery is an integration side effect and must not break the run workflow.
+        }
     }
 
     private boolean isTerminal(RunStatus status) {

@@ -83,8 +83,8 @@ Implemented and validated:
 
 - Python runtime unit test suite: 278 tests passed locally.
 - Deterministic 3-minute runtime demo: `Task -> Plan -> Read -> Patch -> Test -> Failure -> Reflection -> Retry -> Success -> Report`.
-- Spring Boot control-plane slice with task/run workflow, review, webhook intake, generic REST adapter, CI writeback, artifact, timeline, request correlation, metrics, health, and config preflight.
-- Control-plane Maven validation: 56 tests passed on JDK 17.
+- Spring Boot control-plane slice with task/run workflow, review, webhook intake, generic REST adapter, optional result callbacks, CI writeback, artifact, timeline, request correlation, metrics, health, and config preflight.
+- Control-plane Maven validation: 58 tests passed on JDK 17.
 - Local benchmark framework with a completed suite-v0 ablation run: 20 local tasks x 9 variants = 180 task runs, with each configured variant resolving 20/20 local fixture tasks in the latest run.
 - SWE-bench adapter and official evaluator integration path.
 
@@ -242,6 +242,8 @@ The generic REST adapter is the second task-source boundary next to GitHub webho
 Every control-plane HTTP request returns `X-Request-Id`. If the caller provides the header, CodeAgent-X echoes it; otherwise the control plane generates one and places it in the logging MDC as `request_id` for basic cross-request troubleshooting.
 
 `/api/metrics` exposes a lightweight operational snapshot with run counts, status distribution, active/terminal run totals, worker limits, runtime base URL, publisher mode, and workspace root.
+
+Generic REST result callbacks are opt-in. When `CODEAGENTX_CALLBACKS_ENABLED=true` and a task has `resultCallbackUrl`, the control plane posts run status updates with `taskId`, `runId`, `externalTaskId`, status, runtime id, PR URL, and failure reason. Callback failures are isolated from the core run workflow.
 
 ## GitHub publishing configuration
 

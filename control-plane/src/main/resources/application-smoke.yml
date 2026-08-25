@@ -11,6 +11,8 @@ codeagentx:
     run-timeout-ms: ${CODEAGENTX_RUNTIME_RUN_TIMEOUT_MS:60000}
   workspace:
     root: ../.codeagentx/control-plane/smoke-workspaces
+  callbacks:
+    enabled: ${CODEAGENTX_CALLBACKS_ENABLED:false}
   publisher:
     mode: noop
   github:
