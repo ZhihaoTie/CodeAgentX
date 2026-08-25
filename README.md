@@ -84,7 +84,7 @@ Implemented and validated:
 - Python runtime unit test suite: 278 tests passed locally.
 - Deterministic 3-minute runtime demo: `Task -> Plan -> Read -> Patch -> Test -> Failure -> Reflection -> Retry -> Success -> Report`.
 - Spring Boot control-plane slice with task/run workflow, review, webhook intake, CI writeback, artifact, timeline, health, and config preflight.
-- Control-plane Maven validation: 48 tests passed on JDK 17.
+- Control-plane Maven validation: 49 tests passed on JDK 17.
 - Local benchmark framework with a 20-task suite-v0 design and leave-one-module-out ablation configuration.
 - SWE-bench adapter and official evaluator integration path.
 

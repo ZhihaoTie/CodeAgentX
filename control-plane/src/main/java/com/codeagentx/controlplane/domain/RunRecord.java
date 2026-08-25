@@ -201,7 +201,7 @@ public class RunRecord {
     }
 
     public boolean isTimedOut(Instant now, java.time.Duration timeout) {
-        if (status != RunStatus.RUNNING) {
+        if (status != RunStatus.RUNNING && status != RunStatus.REVISING) {
             return false;
         }
         return updatedAt.plus(timeout).isBefore(now) || updatedAt.plus(timeout).equals(now);

@@ -423,6 +423,26 @@ class RunWorkflowServiceTest {
     }
 
     @Test
+    void failTimedOutRunsMarksStuckRevisingRunFailed() {
+        FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
+        runtimeClient.nextStatus = "RUNNING";
+        RunWorkflowService service = new RunWorkflowService(
+            new InMemoryRunRepository(),
+            runtimeClient,
+            0L
+        );
+        RunRecord run = service.createTaskAndRun("rest", "Fix bug", "Details");
+        run.setStatus(RunStatus.REVISING);
+
+        int failed = service.failTimedOutRuns();
+        RunRecord loaded = service.getRun(run.getRunId());
+
+        assertThat(failed).isEqualTo(1);
+        assertThat(loaded.getStatus()).isEqualTo(RunStatus.FAILED);
+        assertThat(loaded.getFailureReason()).contains("timed out");
+    }
+
+    @Test
     void recoverQueuedRunsResubmitsRunWithoutRuntimeRunId() {
         FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
         InMemoryRunRepository repository = new InMemoryRunRepository();
