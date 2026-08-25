@@ -83,8 +83,8 @@ Implemented and validated:
 
 - Python runtime unit test suite: 278 tests passed locally.
 - Deterministic 3-minute runtime demo: `Task -> Plan -> Read -> Patch -> Test -> Failure -> Reflection -> Retry -> Success -> Report`.
-- Spring Boot control-plane slice with task/run workflow, review, webhook intake, generic REST adapter, CI writeback, artifact, timeline, health, and config preflight.
-- Control-plane Maven validation: 53 tests passed on JDK 17.
+- Spring Boot control-plane slice with task/run workflow, review, webhook intake, generic REST adapter, CI writeback, artifact, timeline, request correlation, health, and config preflight.
+- Control-plane Maven validation: 55 tests passed on JDK 17.
 - Local benchmark framework with a completed suite-v0 ablation run: 20 local tasks x 9 variants = 180 task runs, with each configured variant resolving 20/20 local fixture tasks in the latest run.
 - SWE-bench adapter and official evaluator integration path.
 
@@ -237,6 +237,8 @@ POST /api/webhooks/github
 ```
 
 The generic REST adapter is the second task-source boundary next to GitHub webhooks. It accepts external task metadata such as `externalTaskId` and `resultCallbackUrl`, converts the request into the same internal `TaskExecutionSpec`, and deliberately does not accept external workspace control; workspace preparation remains owned by the control plane.
+
+Every control-plane HTTP request returns `X-Request-Id`. If the caller provides the header, CodeAgent-X echoes it; otherwise the control plane generates one and places it in the logging MDC as `request_id` for basic cross-request troubleshooting.
 
 ## GitHub publishing configuration
 

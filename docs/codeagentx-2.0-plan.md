@@ -282,6 +282,7 @@ Multi-repository GitHub publishing: PR creation now receives both Run and Task c
 GitHub workflow_run CI writeback: workflow run webhooks are matched by `head_branch == patchBranch`, moving runs through `CI_RUNNING`, `SUCCEEDED`, or `FAILED`; duplicate CI writebacks do not duplicate final-text evidence
 GitHub webhook signature verification: optional HMAC-SHA256 validation is enforced when `CODEAGENTX_GITHUB_WEBHOOK_SECRET` is configured, while local demos remain frictionless when it is unset
 Generic REST adapter endpoint: `POST /api/adapters/generic/tasks` accepts non-GitHub external tasks, maps them into the same `TaskExecutionSpec`, stores external task/callback metadata, and deliberately leaves workspace ownership to the control plane.
+Basic request correlation: every control-plane HTTP response includes `X-Request-Id`, incoming request ids are echoed, missing ids are generated, and logs include MDC `request_id`.
 ```
 
 Current local validation:
@@ -289,7 +290,7 @@ Current local validation:
 ```text
 Python runtime service tests pass.
 Python full unit test suite passes: 278 tests with py -3.13 -B -m unittest discover -s tests -v.
-Spring Boot control-plane compiles and passes 53 Maven tests on JDK 17, covering workflow state transitions, review action gates, API conflict responses, JPA persistence, GitHub issue/webhook parsing, CI webhook idempotency and terminal-state protection, runtime submit retry, timeout recovery, and local Git publishing helpers.
+Spring Boot control-plane compiles and passes 55 Maven tests on JDK 17, covering workflow state transitions, review action gates, API conflict responses, JPA persistence, GitHub issue/webhook parsing, CI webhook idempotency and terminal-state protection, runtime submit retry, timeout recovery, request correlation, and local Git publishing helpers.
 Latest suite-v0 ablation validation: run `ablation-20260825T052003Z-2e3401b1` completed 20 local tasks x 9 variants = 180 task runs; every configured variant resolved 20/20 local fixture tasks. Private audit artifacts are stored under `.codeagentx/benchmark-suite-v0-full/`.
 Latest control-plane validation: Maven test suite passed with `mvn test`; workflow tests cover REQUEST_CHANGES -> REVISING -> NEEDS_REVIEW.
 Latest local smoke validation: `mvn spring-boot:run "-Dspring-boot.run.profiles=smoke"` plus `py -3.13 -B demos/run_control_plane_smoke.py` reached `SUCCEEDED`.
@@ -366,7 +367,7 @@ Scope:
 ```text
 Metrics
 Structured logs
-Health checks
+Health checks / request correlation
 Admin dashboard
 Redis / queue if needed
 Lease / heartbeat if needed
