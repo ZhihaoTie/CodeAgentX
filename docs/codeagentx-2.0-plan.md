@@ -289,6 +289,7 @@ Current local validation:
 Python runtime service tests pass.
 Python full unit test suite passes: 278 tests with py -3.13 -B -m unittest discover -s tests -v.
 Spring Boot control-plane compiles and passes 52 Maven tests on JDK 17, covering workflow state transitions, review action gates, API conflict responses, JPA persistence, GitHub issue/webhook parsing, CI webhook idempotency and terminal-state protection, runtime submit retry, timeout recovery, and local Git publishing helpers.
+Latest suite-v0 ablation validation: run `ablation-20260825T052003Z-2e3401b1` completed 20 local tasks x 9 variants = 180 task runs; every configured variant resolved 20/20 local fixture tasks. Private audit artifacts are stored under `.codeagentx/benchmark-suite-v0-full/`.
 Latest control-plane validation: Maven test suite passed with `mvn test`; workflow tests cover REQUEST_CHANGES -> REVISING -> NEEDS_REVIEW.
 Latest local smoke validation: `mvn spring-boot:run "-Dspring-boot.run.profiles=smoke"` plus `py -3.13 -B demos/run_control_plane_smoke.py` reached `SUCCEEDED`.
 ```
@@ -383,7 +384,7 @@ The project should be read through a small evidence matrix rather than a feature
 
 | Evidence area | What it proves | Current artifact |
 | --- | --- | --- |
-| Runtime capability | The Python agent can inspect, edit, verify, reflect, retry, and report inside a repository | Python unit tests, deterministic 3-minute demo, suite-v0 harness |
+| Runtime capability | The Python agent can inspect, edit, verify, reflect, retry, and report inside a repository | Python unit tests, deterministic 3-minute demo, completed suite-v0 ablation run |
 | Business vertical slice | A real development task can enter through GitHub/REST and return as PR/CI status | `docs/e2e-github-target.md`, target repo PR #1, CI writeback record |
 | Review control | Human feedback can approve, reject, request changes, or authorize PR publication | `APPROVE`, `REQUEST_CHANGES`, `REJECT`, `AUTHORIZE_PR` workflow |
 | Idempotency | Duplicate delivery does not create duplicate work | `demos/run_duplicate_issue_webhook_smoke.py` |

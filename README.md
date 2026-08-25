@@ -85,10 +85,10 @@ Implemented and validated:
 - Deterministic 3-minute runtime demo: `Task -> Plan -> Read -> Patch -> Test -> Failure -> Reflection -> Retry -> Success -> Report`.
 - Spring Boot control-plane slice with task/run workflow, review, webhook intake, CI writeback, artifact, timeline, health, and config preflight.
 - Control-plane Maven validation: 52 tests passed on JDK 17.
-- Local benchmark framework with a 20-task suite-v0 design and leave-one-module-out ablation configuration.
+- Local benchmark framework with a completed suite-v0 ablation run: 20 local tasks x 9 variants = 180 task runs, with each configured variant resolving 20/20 local fixture tasks in the latest run.
 - SWE-bench adapter and official evaluator integration path.
 
-Evaluation claims are intentionally conservative. The local suite and ablation harness are part of the project evidence, but current public documentation does not claim an official SWE-bench resolved score.
+Evaluation claims are intentionally conservative. The local suite and ablation harness are project evidence for this repository's fixture tasks; current public documentation does not claim an official SWE-bench resolved score.
 
 ## Quick start: Python runtime
 
@@ -293,4 +293,3 @@ GitHub Issue
 ```
 
 This turns CodeAgent-X from a standalone agent runtime into a software engineering agent platform that can be embedded into a real development workflow.
-
