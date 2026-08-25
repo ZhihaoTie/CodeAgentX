@@ -288,7 +288,7 @@ Current local validation:
 ```text
 Python runtime service tests pass.
 Python full unit test suite passes: 278 tests with py -3.13 -B -m unittest discover -s tests -v.
-Spring Boot control-plane compiles and passes workflow + JPA repository + GitHub webhook parser tests with Maven on JDK 17.
+Spring Boot control-plane compiles and passes 48 Maven tests on JDK 17, covering workflow state transitions, JPA persistence, GitHub issue/webhook parsing, CI webhook idempotency, runtime submit retry, and local Git publishing helpers.
 Latest control-plane validation: Maven test suite passed with `mvn test`; workflow tests cover REQUEST_CHANGES -> REVISING -> NEEDS_REVIEW.
 Latest local smoke validation: `mvn spring-boot:run "-Dspring-boot.run.profiles=smoke"` plus `py -3.13 -B demos/run_control_plane_smoke.py` reached `SUCCEEDED`.
 ```
