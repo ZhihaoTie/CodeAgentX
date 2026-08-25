@@ -185,6 +185,16 @@ public class RunWorkflowService {
 
     public RunRecord reviewRun(String runId, ReviewDecision decision, String comment) {
         RunRecord run = requireRun(runId);
+        if (isTerminal(run.getStatus())) {
+            return run;
+        }
+
+        if (decision == ReviewDecision.AUTHORIZE_PR) {
+            requireReviewState(run, RunStatus.APPROVED, decision);
+        } else {
+            requireReviewState(run, RunStatus.NEEDS_REVIEW, decision);
+        }
+
         ReviewRecord review = new ReviewRecord(runId, decision, comment);
         run.addReview(review);
 
@@ -205,6 +215,15 @@ public class RunWorkflowService {
         }
 
         return saveAndPublish(run);
+    }
+
+    private void requireReviewState(RunRecord run, RunStatus expectedStatus, ReviewDecision decision) {
+        if (run.getStatus() != expectedStatus) {
+            throw new IllegalStateException(
+                "Review decision " + decision.name() + " requires run status " + expectedStatus.name()
+                    + " but was " + run.getStatus().name()
+            );
+        }
     }
 
     public RunRecord cancelRun(String runId, String reason) {

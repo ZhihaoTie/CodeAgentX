@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RunWorkflowServiceTest {
     @Test
@@ -163,7 +164,6 @@ class RunWorkflowServiceTest {
         assertThat(loaded.getStatus()).isEqualTo(RunStatus.NEEDS_REVIEW);
         assertThat(loaded.getFinalText()).isEqualTo("Patch ready.");
     }
-
     @Test
     void requestChangesRecordsReviewAndStartsRevisionRun() {
         FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
@@ -171,7 +171,7 @@ class RunWorkflowServiceTest {
             new InMemoryRunRepository(),
             runtimeClient
         );
-        RunRecord run = service.createTaskAndRun("rest", "Fix bug", "Details");
+        RunRecord run = moveToReview(service, service.createTaskAndRun("rest", "Fix bug", "Details"), runtimeClient);
 
         RunRecord reviewed = service.reviewRun(
             run.getRunId(),
@@ -195,7 +195,7 @@ class RunWorkflowServiceTest {
             new InMemoryRunRepository(),
             runtimeClient
         );
-        RunRecord run = service.createTaskAndRun("rest", "Fix bug", "Details");
+        RunRecord run = moveToReview(service, service.createTaskAndRun("rest", "Fix bug", "Details"), runtimeClient);
         service.reviewRun(
             run.getRunId(),
             ReviewDecision.REQUEST_CHANGES,
@@ -213,6 +213,7 @@ class RunWorkflowServiceTest {
         assertThat(loaded.getFinalText()).isEqualTo("Revised patch ready.");
         assertThat(loaded.getPatchArtifact().getDiffText()).contains("diff --git");
     }
+
     @Test
     void authorizePrPublishesPullRequestOnlyAfterReviewDecision() {
         FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
@@ -220,7 +221,8 @@ class RunWorkflowServiceTest {
             new InMemoryRunRepository(),
             runtimeClient
         );
-        RunRecord run = service.createTaskAndRun("rest", "Fix bug", "Details");
+        RunRecord run = moveToReview(service, service.createTaskAndRun("rest", "Fix bug", "Details"), runtimeClient);
+        service.reviewRun(run.getRunId(), ReviewDecision.APPROVE, "Patch accepted.");
 
         RunRecord reviewed = service.reviewRun(
             run.getRunId(),
@@ -248,7 +250,8 @@ class RunWorkflowServiceTest {
             new FakePatchCommitter(),
             new FakePatchPusher()
         );
-        RunRecord run = service.createTaskAndRun("rest", "Fix bug", "Details");
+        RunRecord run = moveToReview(service, service.createTaskAndRun("rest", "Fix bug", "Details"), runtimeClient);
+        service.reviewRun(run.getRunId(), ReviewDecision.APPROVE, "Patch accepted.");
 
         RunRecord reviewed = service.reviewRun(
             run.getRunId(),
@@ -263,6 +266,24 @@ class RunWorkflowServiceTest {
         assertThat(reviewed.getEvents())
             .extracting("eventType")
             .contains("PATCH_BRANCH_PREPARED", "PATCH_COMMITTED", "PATCH_PUSHED", "PR_CREATED");
+    }
+
+    @Test
+    void authorizePrRequiresApprovedRun() {
+        FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
+        RunWorkflowService service = new RunWorkflowService(
+            new InMemoryRunRepository(),
+            runtimeClient
+        );
+        RunRecord run = moveToReview(service, service.createTaskAndRun("rest", "Fix bug", "Details"), runtimeClient);
+
+        assertThatThrownBy(new org.assertj.core.api.ThrowableAssert.ThrowingCallable() {
+            @Override
+            public void call() {
+                service.reviewRun(run.getRunId(), ReviewDecision.AUTHORIZE_PR, "Too early.");
+            }
+        }).isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("requires run status APPROVED");
     }
 
     @Test
@@ -529,6 +550,12 @@ class RunWorkflowServiceTest {
 
         assertThat(afterCancel.getStatus()).isEqualTo(RunStatus.SUCCEEDED);
         assertThat(afterCancel.getFailureReason()).isNull();
+    }
+
+    private RunRecord moveToReview(RunWorkflowService service, RunRecord run, FakeRuntimeClient runtimeClient) {
+        runtimeClient.nextStatus = "SUCCEEDED";
+        runtimeClient.nextFinalText = "Patch ready.";
+        return service.refreshFromRuntime(run.getRunId());
     }
 
     private static class FakeRuntimeClient extends RuntimeClient {
