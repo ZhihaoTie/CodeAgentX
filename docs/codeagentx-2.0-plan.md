@@ -251,6 +251,7 @@ GitHub Issue webhook receiver with repository metadata, idempotency key, and con
 Configurable bounded async worker for runtime submission
 Scheduled runtime poller for RUNNING -> NEEDS_REVIEW / FAILED status writeback
 Run timeout handling for stuck runtime executions, with a stuck-runtime timeout smoke script
+Runtime submit retry policy for transient execution-plane failures, with configurable max attempts and backoff
 Startup recovery for persisted QUEUED runs after worker crash / service restart, plus `POST /api/runs/recover-queued` for explicit operational recovery
 Authorization-gated ResultPublisher boundary with no-op PR publisher
 Config-gated GitHub ResultPublisher skeleton for future real PR creation
@@ -264,6 +265,7 @@ Target repository REST smoke script: `demos/run_target_repo_rest_smoke.py` submi
 Target repository issue webhook smoke script: `demos/run_target_repo_issue_webhook_smoke.py` submits the same target through `/api/webhooks/github` with GitHub-style `issues` headers and payload
 Duplicate issue webhook smoke script: `demos/run_duplicate_issue_webhook_smoke.py` replays the same `X-GitHub-Delivery` twice and asserts both responses return the same run id
 Timeout smoke script: `demos/run_timeout_smoke.py` runs against a fake runtime that never leaves `RUNNING` and verifies the control plane marks the run `FAILED` with a timeout reason
+Runtime submit retry smoke script: `demos/run_runtime_submit_retry_smoke.py` runs against a fake runtime that returns transient 503 failures before accepting the run
 Concurrency-limit smoke script: `demos/run_concurrency_limit_smoke.py` runs against a blocking fake runtime and verifies worker submissions do not exceed the configured pool size
 Run summary endpoint: `/api/runs/summary` reports total runs, counts by status, and the 10 most recently updated runs for lightweight dashboard/readiness views
 Run cancellation endpoint: `/api/runs/{runId}/cancel` marks non-terminal runs as `CANCELLED`, records a cancellation event, and avoids submitting already-cancelled queued runs to the runtime
@@ -385,6 +387,7 @@ The project should be read through a small evidence matrix rather than a feature
 | Review control | Human feedback can approve, reject, request changes, or authorize PR publication | `APPROVE`, `REQUEST_CHANGES`, `REJECT`, `AUTHORIZE_PR` workflow |
 | Idempotency | Duplicate delivery does not create duplicate work | `demos/run_duplicate_issue_webhook_smoke.py` |
 | Timeout recovery | A stuck runtime does not leave a run hanging forever | `demos/run_timeout_smoke.py` |
+| Runtime submit retry | Transient execution-plane submission failures can recover without failing the run | `demos/run_runtime_submit_retry_smoke.py` |
 | Concurrency control | Runtime submissions are bounded by configured worker limits | `demos/run_concurrency_limit_smoke.py` |
 | Queued-run recovery | Queued runs can be recovered after crash/restart | startup recovery plus `POST /api/runs/recover-queued` |
 | Auditability | Runs expose timeline, events, patch artifact, status, and failure reason | `/api/runs/{id}/timeline`, `/events`, `/artifact`, `/summary` |

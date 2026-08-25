@@ -9,6 +9,8 @@ codeagentx:
   runtime:
     base-url: http://127.0.0.1:8765
     poll-delay-ms: ${CODEAGENTX_RUNTIME_POLL_DELAY_MS:5000}
+    submit-max-attempts: ${CODEAGENTX_RUNTIME_SUBMIT_MAX_ATTEMPTS:1}
+    submit-retry-backoff-ms: ${CODEAGENTX_RUNTIME_SUBMIT_RETRY_BACKOFF_MS:0}
     run-timeout-ms: ${CODEAGENTX_RUNTIME_RUN_TIMEOUT_MS:1800000}
   workspace:
     root: ${CODEAGENTX_WORKSPACE_ROOT:../.codeagentx/control-plane/workspaces}

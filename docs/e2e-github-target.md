@@ -116,6 +116,14 @@ Run the stuck-runtime timeout smoke with a short control-plane timeout:
 py -3.13 -B demos/run_timeout_smoke.py
 ```
 
+Run the runtime submit retry smoke with retry attempts enabled:
+
+```powershell
+$env:CODEAGENTX_RUNTIME_SUBMIT_MAX_ATTEMPTS="3"
+$env:CODEAGENTX_RUNTIME_SUBMIT_RETRY_BACKOFF_MS="100"
+py -3.13 -B demos/run_runtime_submit_retry_smoke.py
+```
+
 Run the worker concurrency-limit smoke with the control-plane worker size set to 1:
 
 ```powershell

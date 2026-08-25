@@ -40,6 +40,8 @@ public class RunWorkflowService {
     private final RunEventStreamHub eventStreamHub;
     private final TaskExecutor runExecutor;
     private final Duration runTimeout;
+    private final int runtimeSubmitMaxAttempts;
+    private final Duration runtimeSubmitRetryBackoff;
     private final ResultPublisher resultPublisher;
     private final WorkspacePreparer workspacePreparer;
     private final GitDiffCollector gitDiffCollector;
@@ -48,11 +50,15 @@ public class RunWorkflowService {
     private final PatchPusher patchPusher;
 
     public RunWorkflowService(RunRepositoryPort repository, RuntimeClient runtimeClient) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, new NoopTestResultPublisher(), new NoopWorkspacePreparer(), new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), new NoopWorkspacePreparer(), new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
     }
 
     public RunWorkflowService(RunRepositoryPort repository, RuntimeClient runtimeClient, long runTimeoutMs) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), runTimeoutMs, new NoopTestResultPublisher(), new NoopWorkspacePreparer(), new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), runTimeoutMs, 1, 0L, new NoopTestResultPublisher(), new NoopWorkspacePreparer(), new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
+    }
+
+    public RunWorkflowService(RunRepositoryPort repository, RuntimeClient runtimeClient, long runTimeoutMs, int runtimeSubmitMaxAttempts, long runtimeSubmitRetryBackoffMs) {
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), runTimeoutMs, runtimeSubmitMaxAttempts, runtimeSubmitRetryBackoffMs, new NoopTestResultPublisher(), new NoopWorkspacePreparer(), new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
     }
 
     public RunWorkflowService(
@@ -60,7 +66,7 @@ public class RunWorkflowService {
         RuntimeClient runtimeClient,
         WorkspacePreparer workspacePreparer
     ) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, new NoopTestResultPublisher(), workspacePreparer, new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), workspacePreparer, new NoopGitDiffCollector(), new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
     }
 
     public RunWorkflowService(
@@ -69,7 +75,7 @@ public class RunWorkflowService {
         WorkspacePreparer workspacePreparer,
         GitDiffCollector gitDiffCollector
     ) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, new NoopTestResultPublisher(), workspacePreparer, gitDiffCollector, new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), workspacePreparer, gitDiffCollector, new NoopPatchBranchPreparer(), new NoopPatchCommitter(), new NoopPatchPusher());
     }
 
     public RunWorkflowService(
@@ -79,7 +85,7 @@ public class RunWorkflowService {
         GitDiffCollector gitDiffCollector,
         PatchBranchPreparer patchBranchPreparer
     ) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, new NoopTestResultPublisher(), workspacePreparer, gitDiffCollector, patchBranchPreparer, new NoopPatchCommitter(), new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), workspacePreparer, gitDiffCollector, patchBranchPreparer, new NoopPatchCommitter(), new NoopPatchPusher());
     }
 
     public RunWorkflowService(
@@ -90,7 +96,7 @@ public class RunWorkflowService {
         PatchBranchPreparer patchBranchPreparer,
         PatchCommitter patchCommitter
     ) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, new NoopTestResultPublisher(), workspacePreparer, gitDiffCollector, patchBranchPreparer, patchCommitter, new NoopPatchPusher());
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), workspacePreparer, gitDiffCollector, patchBranchPreparer, patchCommitter, new NoopPatchPusher());
     }
 
     public RunWorkflowService(
@@ -102,7 +108,7 @@ public class RunWorkflowService {
         PatchCommitter patchCommitter,
         PatchPusher patchPusher
     ) {
-        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, new NoopTestResultPublisher(), workspacePreparer, gitDiffCollector, patchBranchPreparer, patchCommitter, patchPusher);
+        this(repository, runtimeClient, new RunEventStreamHub(), new DirectTaskExecutor(), 30 * 60 * 1000L, 1, 0L, new NoopTestResultPublisher(), workspacePreparer, gitDiffCollector, patchBranchPreparer, patchCommitter, patchPusher);
     }
 
     @Autowired
@@ -112,6 +118,8 @@ public class RunWorkflowService {
         RunEventStreamHub eventStreamHub,
         @Qualifier("agentRunExecutor") TaskExecutor runExecutor,
         @Value("${codeagentx.runtime.run-timeout-ms:1800000}") long runTimeoutMs,
+        @Value("${codeagentx.runtime.submit-max-attempts:1}") int runtimeSubmitMaxAttempts,
+        @Value("${codeagentx.runtime.submit-retry-backoff-ms:0}") long runtimeSubmitRetryBackoffMs,
         ResultPublisher resultPublisher,
         WorkspacePreparer workspacePreparer,
         GitDiffCollector gitDiffCollector,
@@ -124,6 +132,8 @@ public class RunWorkflowService {
         this.eventStreamHub = eventStreamHub;
         this.runExecutor = runExecutor;
         this.runTimeout = Duration.ofMillis(runTimeoutMs);
+        this.runtimeSubmitMaxAttempts = Math.max(1, runtimeSubmitMaxAttempts);
+        this.runtimeSubmitRetryBackoff = Duration.ofMillis(Math.max(0L, runtimeSubmitRetryBackoffMs));
         this.resultPublisher = resultPublisher;
         this.workspacePreparer = workspacePreparer;
         this.gitDiffCollector = gitDiffCollector;
@@ -236,7 +246,7 @@ public class RunWorkflowService {
                 }
                 request.setVerificationCommand(task.getVerificationCommand());
             }
-            RuntimeRunResponse response = runtimeClient.submitRun(request);
+            RuntimeRunResponse response = submitRunWithRetry(run, request);
             if (response != null) {
                 run.setRuntimeRunId(response.getRunId());
             }
@@ -246,6 +256,38 @@ public class RunWorkflowService {
             run.setFailureReason(exc.getClass().getSimpleName() + ": " + exc.getMessage());
         }
         saveAndPublish(run);
+    }
+
+    private RuntimeRunResponse submitRunWithRetry(RunRecord run, RuntimeRunRequest request) {
+        RuntimeException lastFailure = null;
+        for (int attempt = 1; attempt <= runtimeSubmitMaxAttempts; attempt++) {
+            try {
+                return runtimeClient.submitRun(request);
+            } catch (RuntimeException exc) {
+                lastFailure = exc;
+                if (attempt >= runtimeSubmitMaxAttempts) {
+                    throw exc;
+                }
+                run.addEvent("RUNTIME_SUBMIT_RETRY", Collections.<String, Object>singletonMap(
+                    "attempt",
+                    attempt
+                ));
+                sleepBeforeRetry();
+            }
+        }
+        throw lastFailure == null ? new IllegalStateException("runtime submission failed") : lastFailure;
+    }
+
+    private void sleepBeforeRetry() {
+        if (runtimeSubmitRetryBackoff.isZero() || runtimeSubmitRetryBackoff.isNegative()) {
+            return;
+        }
+        try {
+            Thread.sleep(runtimeSubmitRetryBackoff.toMillis());
+        } catch (InterruptedException exc) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("runtime submission retry interrupted", exc);
+        }
     }
 
     public void submitRuntimeRunAsync(final String runId, final String taskText) {

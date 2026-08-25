@@ -6,6 +6,8 @@ codeagentx:
   runtime:
     base-url: http://127.0.0.1:8765
     poll-delay-ms: 500
+    submit-max-attempts: ${CODEAGENTX_RUNTIME_SUBMIT_MAX_ATTEMPTS:1}
+    submit-retry-backoff-ms: ${CODEAGENTX_RUNTIME_SUBMIT_RETRY_BACKOFF_MS:0}
     run-timeout-ms: ${CODEAGENTX_RUNTIME_RUN_TIMEOUT_MS:60000}
   workspace:
     root: ../.codeagentx/control-plane/smoke-workspaces

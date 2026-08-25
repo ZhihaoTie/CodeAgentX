@@ -329,6 +329,28 @@ class RunWorkflowServiceTest {
     }
 
     @Test
+    void runtimeSubmissionRetriesTransientFailure() {
+        FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
+        runtimeClient.failSubmitAttemptsRemaining = 2;
+        RunWorkflowService service = new RunWorkflowService(
+            new InMemoryRunRepository(),
+            runtimeClient,
+            30 * 60 * 1000L,
+            3,
+            0L
+        );
+
+        RunRecord run = service.createTaskAndRun("rest", "Fix flaky runtime", "Retry transient submit failures.");
+
+        assertThat(run.getStatus()).isEqualTo(RunStatus.RUNNING);
+        assertThat(run.getRuntimeRunId()).isEqualTo("runtime-1");
+        assertThat(runtimeClient.submitAttempts).isEqualTo(3);
+        assertThat(run.getEvents())
+            .extracting("eventType")
+            .contains("RUNTIME_SUBMIT_RETRY", "RUNTIME_RUN_LINKED");
+    }
+
+    @Test
     void failedWorkspacePreparationMarksRunFailedWithoutSubmittingRuntime() {
         FakeRuntimeClient runtimeClient = new FakeRuntimeClient();
         RunWorkflowService service = new RunWorkflowService(
@@ -444,6 +466,8 @@ class RunWorkflowServiceTest {
     private static class FakeRuntimeClient extends RuntimeClient {
         private int nextRunNumber = 1;
         private boolean failSubmit = false;
+        private int failSubmitAttemptsRemaining = 0;
+        private int submitAttempts = 0;
         private String nextStatus = "RUNNING";
         private String nextFinalText = null;
         private String nextPatchDiff = null;
@@ -459,6 +483,11 @@ class RunWorkflowServiceTest {
 
         @Override
         public RuntimeRunResponse submitRun(RuntimeRunRequest request) {
+            submitAttempts++;
+            if (failSubmitAttemptsRemaining > 0) {
+                failSubmitAttemptsRemaining--;
+                throw new RuntimeException("runtime unavailable");
+            }
             if (failSubmit) {
                 throw new RuntimeException("runtime unavailable");
             }
