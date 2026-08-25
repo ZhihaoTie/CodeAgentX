@@ -287,6 +287,7 @@ Basic request correlation: every control-plane HTTP response includes `X-Request
 Basic metrics endpoint: `/api/metrics` exposes run totals, status counts, active/terminal run counts, worker limits, runtime base URL, publisher mode, callback enablement, and workspace root for lightweight operational visibility.
 Generic REST result callbacks: when `CODEAGENTX_CALLBACKS_ENABLED=true` and `resultCallbackUrl` is present, the control plane posts run status updates back to the external system while isolating callback failures from the core workflow; callback enablement is also visible in health, metrics, and preflight responses.
 Compose smoke script: `demos/run_compose_smoke.py` checks health, preflight, metrics, and request-id echo behavior against a running Compose deployment without mutating tasks or GitHub state. Compose smoke has been validated locally with PostgreSQL, Python Runtime, and Spring Boot Control Plane all healthy.
+Compose restart smoke script: `demos/run_compose_restart_smoke.py` restarts the Compose deployment, waits for recovery, and re-runs the read-only smoke checks.
 ```
 
 Current local validation:

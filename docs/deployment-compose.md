@@ -105,12 +105,13 @@ python demos/run_compose_smoke.py
 Then verify the deployment behavior you care about:
 
 1. Cold deployment: clone/copy repo, configure `.env`, build, start, smoke check.
-2. Persistence: restart with `docker compose restart` and confirm tasks/runs remain in PostgreSQL.
-3. Duplicate webhook: replay the same GitHub delivery id and confirm it maps to one task/run.
-4. Timeout: run a deterministic timeout case and confirm the run fails cleanly.
-5. Concurrency: lower worker limits and confirm extra tasks wait instead of running unbounded.
-6. Generic adapter: submit through `/api/adapters/generic/tasks` and, if enabled, verify result callback delivery.
-7. Real GitHub flow: Issue -> webhook -> task -> runtime -> review -> PR -> CI writeback.
+2. Restart recovery: run `python demos/run_compose_restart_smoke.py` and confirm health, preflight, metrics, and request-id behavior survive a Compose restart.
+3. Persistence: create a controlled task/run and confirm it remains in PostgreSQL after restart.
+4. Duplicate webhook: replay the same GitHub delivery id and confirm it maps to one task/run.
+5. Timeout: run a deterministic timeout case and confirm the run fails cleanly.
+6. Concurrency: lower worker limits and confirm extra tasks wait instead of running unbounded.
+7. Generic adapter: submit through `/api/adapters/generic/tasks` and, if enabled, verify result callback delivery.
+8. Real GitHub flow: Issue -> webhook -> task -> runtime -> review -> PR -> CI writeback.
 
 ## Shutdown
 
