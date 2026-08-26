@@ -1,157 +1,185 @@
-# Docker Compose Deployment
+# Docker Compose 部署指南
 
-This is the production-like single-node deployment path for CodeAgent-X. It is intentionally small: Docker Compose starts the control plane, the Python runtime, PostgreSQL, and a shared workspace volume. It does not introduce Kubernetes, a message queue, or an external observability stack. The current local validation record is maintained in [deployment-validation.md](deployment-validation.md).
+本文说明如何在单机或 Linux 服务器上部署 CodeAgent-X。当前方案刻意保持简单，不依赖 Kubernetes、消息队列或外部可观测平台。
 
-## Topology
+## 部署拓扑
 
 ```text
-Internet / local operator
-        |
-        v
-Spring Boot control-plane :8080
-        |
-        | private Docker network
-        v
-Python runtime :8765
-        |
-        v
-shared /workspaces volume
-        |
-        v
-PostgreSQL persistent volume
+GitHub / 调用方
+      │ HTTP / Webhook
+      ▼
+Control Plane :8080
+      │ Compose 私有网络
+      ├──────────────► Runtime :8765
+      │                    │
+      │              shared /workspaces
+      ▼
+PostgreSQL :5432
 ```
 
-Only the control-plane port is published by default. PostgreSQL and the Python runtime stay inside the Compose network.
+默认只有 `8080` 暴露到宿主机。Runtime 和 PostgreSQL 仅在 Compose 网络内可访问。
 
-## Quick start
+## 环境要求
+
+- Docker Engine 与 Docker Compose v2；
+- 能访问 GitHub；
+- 构建时能访问 Docker Hub 和 Maven Central；
+- GitHub 模式需要具有目标仓库权限的 Token；
+- 接收 Webhook 需要公网域名、反向代理或 Tunnel。
+
+## 快速启动
 
 ```bash
+git clone https://github.com/ZhihaoTie/CodeAgentX.git codeagentx-deploy
+cd codeagentx-deploy
 cp .env.example .env
-# edit .env and set real secrets only when needed
+```
+
+编辑 `.env` 后启动：
+
+```bash
 docker compose up -d --build
-python demos/run_compose_smoke.py
+docker compose ps
+curl -sS http://127.0.0.1:8080/api/health
 ```
 
-## Clean server layout
+健康响应应包含：
 
-For a disposable clean-server validation, keep every project-owned file under one removable directory:
+```json
+{
+  "status": "ok",
+  "database": "ok",
+  "runtime": "ok"
+}
+```
+
+## 推荐服务器目录
 
 ```text
-/data/fast/zhihao/
-|-- codeagentx-deploy/      # git clone and docker-compose.yml
-|-- codeagentx-data/        # PostgreSQL data when configured as a bind mount
-`-- codeagentx-workspaces/  # cloned target repositories and runtime workspaces
+/data/codeagentx/
+├── deploy/       # 项目源码和 Compose 文件
+├── postgres/     # PostgreSQL 数据
+└── workspaces/   # 目标仓库工作区
 ```
 
-Clone the repository into `codeagentx-deploy`, then set these values in `codeagentx-deploy/.env`:
+在 `.env` 中使用绝对路径：
 
 ```text
-CODEAGENTX_POSTGRES_DATA_VOLUME=/data/fast/zhihao/codeagentx-data/postgres
-CODEAGENTX_WORKSPACES_VOLUME=/data/fast/zhihao/codeagentx-workspaces
+CODEAGENTX_POSTGRES_DATA_VOLUME=/data/codeagentx/postgres
+CODEAGENTX_WORKSPACES_VOLUME=/data/codeagentx/workspaces
 ```
 
-The default values still use Docker named volumes for local development. Absolute paths are recommended for a clean server when you want project data to be easy to inspect and remove.
+## 工作区权限
 
-On Linux, the control-plane service also maps `host.docker.internal` to Docker's host gateway. This lets callback smoke tests post from the container back to a callback receiver running on the server host.
-
-The control-plane and runtime containers both run as the same `codeagentx` UID/GID (`1000:1000`) so a shared `/workspaces` bind mount can be used for clone, edit, test, patch branch, commit, and push operations. On a clean server, initialize the bind-mounted workspace path with:
+Control Plane 负责克隆，Runtime 负责编辑，两者必须对同一个 `/workspaces` 可写。镜像中的 `codeagentx` 用户使用 UID/GID `1000:1000`。
 
 ```bash
-sudo chown -R 1000:1000 /data/fast/zhihao/codeagentx-workspaces
-sudo chmod -R u+rwX,g+rwX /data/fast/zhihao/codeagentx-workspaces
+sudo mkdir -p /data/codeagentx/workspaces
+sudo chown -R 1000:1000 /data/codeagentx/workspaces
+sudo chmod -R u+rwX,g+rwX /data/codeagentx/workspaces
 ```
 
-The control plane also marks each prepared workspace as a Git `safe.directory` before local branch, commit, and push operations. This avoids Git's dubious-ownership protection blocking review-authorized PR publication while still trusting only the current run workspace instead of using a global wildcard.
-
-## Local prebuilt override
-
-When Docker Hub or Maven builder layers are slow on a development machine, you can validate the same three-service runtime shape with a locally built control-plane jar:
+若宿主机或已有文件的 UID 无法统一，可设置 ACL：
 
 ```bash
-cd control-plane
-./mvnw -q -DskipTests package
-cd ..
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
-python demos/run_compose_smoke.py
+sudo setfacl -R -m u:1000:rwx /data/codeagentx/workspaces
+sudo setfacl -R -m d:u:1000:rwx /data/codeagentx/workspaces
 ```
 
-This override is for local validation only. The main `docker-compose.yml` remains the clean-machine path.
+验证两个服务均可写：
 
-The smoke script is read-only. It checks:
+```bash
+docker compose exec control-plane sh -lc 'id && touch /workspaces/cp-test && rm /workspaces/cp-test'
+docker compose exec runtime sh -lc 'id && touch /workspaces/runtime-test && rm /workspaces/runtime-test'
+```
 
-- `/api/health`
-- `/api/config/preflight`
-- `/api/metrics`
-- `X-Request-Id` echo behavior
-
-## Important environment choices
-
-For local GitHub publishing, set these in `.env` or deployment secrets:
+## GitHub 配置
 
 ```text
 CODEAGENTX_PUBLISHER_MODE=github
 CODEAGENTX_GITHUB_TOKEN=...
 CODEAGENTX_GITHUB_REPOSITORY=owner/repo
 CODEAGENTX_GITHUB_BASE_BRANCH=main
+CODEAGENTX_GITHUB_REMOTE_NAME=origin
+CODEAGENTX_GITHUB_HEAD_BRANCH_PREFIX=codeagentx/run-
 CODEAGENTX_GITHUB_WEBHOOK_SECRET=...
-```
-
-For Docker/Linux deployments, verification commands should use `python`, not Windows `py -3.13`:
-
-```text
 CODEAGENTX_GITHUB_DEFAULT_VERIFICATION_COMMAND=python -m unittest discover -s tests -v
 ```
 
-Generic REST callbacks are disabled by default:
+不要把 `.env`、Token 或 Webhook Secret 提交到 Git。
 
-```text
-CODEAGENTX_CALLBACKS_ENABLED=false
+检查配置是否就绪：
+
+```bash
+curl -sS http://127.0.0.1:8080/api/config/preflight
 ```
 
-Enable them only when the callback receiver is trusted and reachable from the control-plane container.
+## 没有公网 IP
 
-## Trust boundaries
+GitHub 必须主动访问 Webhook，因此仅有 SSH 不能完成自动触发。可以使用 Cloudflare Tunnel：
 
-The Python runtime can read and edit repositories and run verification commands. Treat it as an internal execution service, not a public API.
+```bash
+docker run --rm --network host cloudflare/cloudflared:latest \
+  tunnel --url http://127.0.0.1:8080
+```
 
-The first Compose deployment therefore keeps these boundaries:
+将返回的 HTTPS 地址配置为：
 
-- public: Spring Boot control-plane API on port `8080`
-- private: Python runtime internal API on port `8765`
-- private: PostgreSQL on port `5432`
-- shared: `/workspaces` Docker volume between control-plane and runtime
-- persisted: PostgreSQL data volume
+```text
+https://<random>.trycloudflare.com/api/webhooks/github
+```
 
-Do not expose arbitrary task submission for untrusted repositories. Production-like runs should use a known repository, constrained verification commands, workspace boundaries, and least-privilege GitHub tokens.
+Quick Tunnel 适合验收，不保证固定域名或可用性。长期使用应创建 Named Tunnel、固定域名，并将 Tunnel 作为服务运行。
 
-## Operational validation checklist
+## Webhook 设置
 
-After `docker compose up -d --build`, run:
+- Payload URL：外部 HTTPS 地址加 `/api/webhooks/github`
+- Content type：`application/json`
+- Secret：与 `CODEAGENTX_GITHUB_WEBHOOK_SECRET` 相同
+- Events：`Issues`、`Pushes`、`Workflow runs`
+- Active：启用
+
+GitHub 的 Ping 显示成功后，再创建测试 Issue。
+
+## 运维检查
 
 ```bash
 docker compose ps
-python demos/run_compose_smoke.py
+docker compose logs --tail=200 control-plane
+docker compose logs --tail=200 runtime
+curl -sS http://127.0.0.1:8080/api/runs/summary
 ```
 
-Then verify the deployment behavior you care about:
+只重启服务：
 
-1. Cold deployment: clone/copy repo, configure `.env`, build, start, smoke check.
-2. Restart recovery: run `python demos/run_compose_restart_smoke.py` and confirm health, preflight, metrics, and request-id behavior survive a Compose restart.
-3. Persistence: create a controlled task/run and confirm it remains in PostgreSQL after restart.
-4. Duplicate webhook: replay the same GitHub delivery id and confirm it maps to one task/run.
-5. Timeout: run a deterministic timeout case and confirm the run fails cleanly.
-6. Concurrency: lower worker limits and confirm extra tasks wait instead of running unbounded.
-7. Generic adapter: run `python demos/run_compose_generic_callback_smoke.py` with callbacks enabled to verify external task intake, mock runtime execution, and result callback delivery.
-8. Real GitHub flow: Issue -> webhook -> task -> runtime -> review -> PR -> CI writeback.
+```bash
+docker compose restart
+```
 
-## Shutdown
+停止但保留数据：
 
 ```bash
 docker compose down
 ```
 
-To remove persisted database/workspace volumes, use the destructive variant only when you intentionally want a clean slate:
+`docker compose down -v` 会删除命名卷，只能在明确需要清空数据时使用。
+
+## 常见问题
+
+### 构建阶段网络超时
+
+Docker Hub 或 Maven Central 超时属于出口网络问题。已有镜像时可先使用：
 
 ```bash
-docker compose down -v
+docker compose up -d --no-build
 ```
+
+它不会包含尚未构建进镜像的新代码。
+
+### `dubious ownership`
+
+确认容器 UID 和工作区权限一致。CodeAgent-X 会针对当前 Run 设置 `safe.directory`，不建议使用全局 `safe.directory=*`。
+
+### Git Push 要求用户名
+
+确认部署镜像包含 Token Push 实现，并检查 Token 权限。CodeAgent-X 使用非交互式凭据，不应把 Token 写进 Remote URL。

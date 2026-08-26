@@ -1,133 +1,91 @@
-# Final Validation Record
+# CodeAgent-X MVP 最终验收记录
 
-This record summarizes the final validation state for the CodeAgent-X 2.0
-stabilization phase.
+## 验收结论
 
-## Final status
+**CodeAgent-X 当前阶段目标已经达成。**
 
-CodeAgent-X is complete for the current project phase.
+三个入口均能使用同一套 Agent 执行能力：
 
-The implemented system provides three working entrypoints over the same agent
-execution capability:
-
-| Entry point | Status | Evidence |
+| 入口 | 状态 | 主要证据 |
 | --- | --- | --- |
-| Local CLI | Validated | `codeagentx doctor`, `codeagentx init`, and `codeagentx fix` are covered by CLI tests and full Python validation. |
-| Generic REST adapter | Validated | Compose and callback smokes cover task intake, runtime execution, artifacts, and callback delivery. |
-| GitHub platform mode | Implemented and validated through patch branch/commit | Live server testing validated webhook intake, workspace preparation, agent patching, tests, human review, branch preparation, and commit creation. Final push/CI was blocked by deployment-host outbound network constraints during image refresh. |
+| 本地 CLI | 通过 | `doctor`、`init`、`fix` 和本地 PR 参数有测试覆盖 |
+| Generic REST | 通过 | 任务创建、Runtime、产物、状态与回调 Smoke 通过 |
+| GitHub 平台 | 通过 | 真实 Issue → PR → Actions CI → `SUCCEEDED` 闭环完成 |
 
-The remaining live PR push and CI status writeback step is treated as an
-environment-dependent acceptance check, not an active product-development item.
-The code path for token-backed GitHub branch pushing is implemented.
+## 自动化测试
 
-## Verified local test evidence
-
-Python runtime and CLI:
+Python：
 
 ```text
-py -3.13 -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
 Ran 295 tests
 OK
 ```
 
-Control plane:
+Control Plane：
 
 ```text
-mvn -q test
-All Maven tests passed
+mvn test
+所有测试通过
 ```
 
-Targeted control-plane patch publication tests:
+## 真实服务器 E2E
 
-```text
-mvn -q -Dtest=LocalGitPatchPusherTest,LocalGitPatchCommitterTest test
-OK
-```
-
-## Server E2E evidence
-
-The clean Linux server deployment reached the following verified sequence:
+最终验证链路：
 
 ```text
 GitHub Issue
- -> GitHub webhook delivery
- -> persisted Task / Run
- -> repository clone
- -> Python runtime execution
- -> source patch
- -> configured verifier passed
- -> NEEDS_REVIEW
- -> APPROVE
- -> APPROVED
- -> AUTHORIZE_PR
- -> PR_CREATING
- -> patch branch prepared
- -> patch commit created
+ → GitHub Webhook
+ → Task / Run
+ → 仓库克隆与工作区准备
+ → Runtime 分析和修改
+ → 验证通过
+ → NEEDS_REVIEW
+ → APPROVE
+ → AUTHORIZE_PR
+ → 分支 / Commit / Push
+ → Pull Request
+ → GitHub Actions CI
+ → workflow_run 回写
+ → SUCCEEDED
 ```
 
-Observed patch:
+目标仓库：`https://github.com/ZhihaoTie/CodeAgent`
 
-```diff
-diff --git a/string_utils.py b/string_utils.py
---- a/string_utils.py
-+++ b/string_utils.py
-@@ -2,5 +2,5 @@ def normalize_title(value):
-     """Normalize a title for display."""
-     if value is None:
-         return ""
--    return value.strip().lower()
-+    return value.strip().title()
-```
+验证补丁将 `normalize_title` 从小写转换修正为标题格式，目标仓库两项测试全部通过。最终 PR 和 CI 结果均在 GitHub 云端完成，并成功回写平台。
 
-Observed verifier:
+## 验收过程中修复的问题
 
-```text
-python -m unittest discover -s tests -v
-Ran 2 tests
-OK
-```
+1. Generic Task 请求字段应使用 `body`，而不是 `prompt`。
+2. Control Plane 与 Runtime 的容器 UID 必须一致，并共享可写工作区。
+3. Git 需要仅信任当前 Run 的 `safe.directory`。
+4. Control Plane 容器需要配置提交者姓名和邮箱。
+5. Git 推送需要通过非交互式 Token 凭据完成，Token 不能写入 Remote URL。
+6. GitHub Webhook Secret 必须启用并校验签名。
 
-The first live PR attempt exposed two deployment issues that were fixed in code:
+这些问题已经在代码、Dockerfile、Compose 配置或部署 ACL 中处理。
 
-1. Missing Git commit identity in the control-plane container.
-2. Missing non-interactive GitHub token credential handling for `git push`.
+## 环境问题说明
 
-Fix commits:
+测试期间出现过 Docker Hub、Maven Central 和 Cloudflare Quick Tunnel 超时。这些问题来自服务器出口网络，并非业务逻辑缺陷。网络恢复后，完整 PR/CI 闭环已最终成功。
 
-```text
-7473b37 Configure git identity for patch commits
-6847f9d Use GitHub token for patch branch pushes
-```
+## 最终边界
 
-The server could not rebuild the refreshed image because outbound access to
-Docker Hub and Maven Central timed out from the deployment host. That prevented a
-final live PR/CI rerun on the server, but did not reveal a remaining application
-logic defect.
+可以公开陈述：
 
-## Product readiness boundary
+- Agent 能检查、修改并验证真实仓库；
+- 本地 CLI、REST 和 GitHub 三种入口可用；
+- 人工审核、PR 发布和 CI 回写闭环已验证；
+- 单机 Docker Compose 部署已验证；
+- 运行过程具有事件、产物和审计记录。
 
-Validated claims:
+不应夸大为：
 
-- autonomous repository inspection and patching;
-- deterministic verifier execution and parsed test results;
-- failure reflection and retry support;
-- local developer `fix` workflow from failing verifier output;
-- project setup guidance through `doctor` and `init`;
-- REST task intake and callback delivery;
-- GitHub issue webhook intake;
-- human review gates;
-- patch artifact, audit timeline, health, metrics, and preflight endpoints;
-- Docker Compose single-node deployment path.
+- 已完成大规模分布式生产部署；
+- 可对任意不可信仓库开放执行；
+- 已获得新的官方 SWE-bench 排名；
+- 可以绕过人工审核自动合并主分支。
 
-Conservative remaining claim:
+## 冻结建议
 
-- live GitHub PR push and CI writeback are implemented and ready for final
-  acceptance when the deployment host has stable outbound network access.
-
-## Freeze recommendation
-
-Do not add large new feature areas in this phase. Continue only with:
-
-- documentation corrections;
-- bug fixes found during repeatable validation;
-- final release notes and tag preparation.
+MVP 主线应冻结。后续工作以缺陷修复、易用性、安全、文档和发布维护为主。

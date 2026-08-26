@@ -207,6 +207,7 @@ CodeAgent-X 当前关注单机或单服务器上的可靠工程闭环。Kubernet
 
 ## 更多文档
 
+- [中文文档中心](docs/README.md)
 - [Docker Compose 部署](docs/deployment-compose.md)
 - [GitHub E2E 流程](docs/e2e-github-target.md)
 - [发布检查清单](docs/public-release-checklist.md)

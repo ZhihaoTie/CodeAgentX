@@ -207,6 +207,7 @@ Use the local CLI for everyday coding assistance. Deploy the control plane when 
 
 ## More documentation
 
+- [Chinese documentation index](docs/README.md)
 - [Docker Compose deployment](docs/deployment-compose.md)
 - [GitHub E2E workflow](docs/e2e-github-target.md)
 - [Public release checklist](docs/public-release-checklist.md)

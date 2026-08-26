@@ -1,64 +1,52 @@
-# CodeAgent-X Project Summary
+# CodeAgent-X 项目总结
 
-## One-sentence summary
+## 一句话定位
 
-CodeAgent-X is a software-engineering agent system that turns code-repair tasks
-into auditable, test-backed patches through a local CLI, a generic REST adapter,
-and a GitHub Issue -> Review -> PR workflow.
+CodeAgent-X 是一个软件工程 Agent Runtime 与工作流平台，它将代码任务转化为带测试证据、人工审核和完整审计记录的代码变更。
 
-## What problem it solves
+## 解决的问题
 
-Most coding-agent demos stop at "the model edited a file." CodeAgent-X focuses
-on the engineering boundary around that edit:
+普通 Coding Agent 往往只关注“模型是否修改了文件”。CodeAgent-X 关注修改前后的工程边界：
 
-- how the task enters the system;
-- how repository work is isolated;
-- how tools are permissioned;
-- how test evidence is captured;
-- how failures are reflected on and retried;
-- how a human reviews the patch;
-- how the result can become a pull request;
-- how the whole run can be audited later.
+- 任务从哪里进入系统；
+- 仓库如何隔离和准备；
+- Agent 可以使用哪些工具；
+- 修改后如何执行验证；
+- 失败后如何反思和重试；
+- 人类如何审核补丁；
+- 补丁如何成为 PR；
+- CI 结果如何回写并形成审计记录。
 
-## Architecture
+## 系统组成
 
-CodeAgent-X has two main planes.
+### Python 执行平面
 
-### Python execution plane
+`codeagentx/` 负责实际仓库工作：
 
-The Python runtime performs the actual software-engineering work:
+- Agent Loop、计划和运行状态；
+- 文件读取、编辑、搜索与 Shell 工具；
+- AST 与文本上下文检索；
+- 命令风险分类和工作区边界；
+- 补丁事务与回滚元数据；
+- 验证命令、测试结果解析、失败反思和重试；
+- 轨迹报告、Benchmark 与 SWE-bench 适配。
 
-- model turn orchestration;
-- tool execution;
-- file read/write/edit;
-- shell execution with risk classification;
-- AST and text context retrieval;
-- patch transactions and rollback metadata;
-- verifier execution;
-- structured test-output parsing;
-- failure reflection and retry strategy;
-- trajectory and benchmark artifacts.
+### Java 控制平面
 
-### Java control plane
+`control-plane/` 负责平台工作流：
 
-The Spring Boot control plane provides the platform workflow:
+- Task / Run 持久化与异步调度；
+- 状态机、事件、时间线和审计 API；
+- GitHub Issue 与 `workflow_run` Webhook；
+- 人工审核与 PR 发布权限；
+- 分支、提交、推送和 PR 创建；
+- 通用 REST Adapter、结果回调、健康检查与指标。
 
-- task and run persistence;
-- asynchronous runtime submission;
-- status polling and recovery;
-- run events, timeline, and audit APIs;
-- review decisions;
-- GitHub webhook intake;
-- GitHub workflow_run CI writeback boundary;
-- branch, commit, push, and PR publication boundary;
-- Generic REST adapter;
-- health, metrics, and configuration preflight.
+## 三种使用入口
 
-## User-facing modes
+### 本地开发模式
 
-### 1. Local Developer Mode
-
-For one developer working inside a checkout:
+适合个人在当前仓库快速修复：
 
 ```bash
 codeagentx doctor
@@ -66,101 +54,57 @@ codeagentx init --verify "pytest -q" --yes
 codeagentx fix --yes
 ```
 
-`fix` starts from a failing verifier. It captures the failure output, summarizes
-failing tests and likely relevant files, gives that context to the agent, applies
-a patch, reruns the verifier, and prints the resulting summary and diff.
+### 通用集成模式
 
-This is the mode closest to everyday personal use.
-
-### 2. Generic Integration Mode
-
-For external systems that want to create agent tasks without adopting GitHub
-Issues:
+外部系统通过下面的接口创建任务：
 
 ```http
 POST /api/adapters/generic/tasks
 ```
 
-This validates CodeAgent-X as a business-system integration boundary. Callers
-can submit task metadata, receive callbacks, and inspect audit records while the
-control plane owns workspace preparation and execution safety.
+Control Plane 负责工作区、安全边界、异步执行、状态和回调。
 
-### 3. GitHub Platform Mode
-
-For repository workflow integration:
+### GitHub 平台模式
 
 ```text
-GitHub Issue
- -> webhook
- -> Task / Run
- -> Agent patch
- -> Tests
- -> Human review
- -> Branch / Commit / Push
- -> Pull Request
- -> CI status writeback
+Issue → Webhook → Agent → Patch → Test
+      → Review → PR → CI → 状态回写
 ```
 
-This mode demonstrates how an agent can fit into a real engineering process
-without skipping review or auditability.
+适合团队仓库自动化，同时保留人工审核与审计能力。
 
-## Reliability design
+## 可靠性设计
 
-The project includes explicit support for:
+- Webhook 幂等处理；
+- 队列恢复与 Runtime 提交重试；
+- 卡住任务超时；
+- Worker 并发限制；
+- Request ID 关联；
+- 回调投递记录；
+- 确定性验证报告；
+- Patch Policy 与工具编辑回滚元数据。
 
-- idempotent webhook handling;
-- queued-run recovery;
-- runtime submit retry;
-- stuck-runtime timeout;
-- worker concurrency limits;
-- request correlation IDs;
-- callback delivery tracking;
-- deterministic verifier reports;
-- patch policy checks;
-- rollback metadata for tool edits.
+## 最终状态
 
-## Final implementation state
+当前 MVP 已完成：
 
-Completed:
+- Python Runtime 和本地 CLI；
+- `doctor`、`init`、`fix`；
+- Spring Boot Control Plane；
+- Generic REST 和 GitHub Webhook；
+- 人工审核、Git 分支/提交/推送和 PR 创建；
+- GitHub Actions CI 状态回写；
+- Docker Compose 单机部署；
+- 健康、指标、配置预检、审计、事件和产物 API；
+- 本地 Benchmark 与 SWE-bench 集成路径。
 
-- Python runtime and local CLI;
-- `doctor`, `init`, and verifier-first `fix`;
-- Spring Boot control plane;
-- Generic REST task adapter;
-- GitHub webhook intake;
-- review-gated patch publication flow;
-- GitHub token-backed branch push implementation;
-- Docker Compose deployment topology;
-- health, metrics, preflight, audit, artifact, event, and timeline APIs;
-- local benchmark and SWE-bench integration path;
-- final documentation and scope freeze.
+真实 GitHub 闭环已经到达最终 `SUCCEEDED`。项目当前应以稳定、易用和文档维护为主，不再扩张核心范围。
 
-Deferred by design:
+## 有意不做的内容
 
-- Kubernetes or distributed production orchestration;
-- Redis/Kafka queue infrastructure;
-- multi-agent orchestration;
-- RAG or memory platform expansion;
-- IDE plugin or full editor clone;
-- admin dashboard;
-- additional integrations beyond Generic REST and GitHub.
-
-## Final assessment
-
-CodeAgent-X has enough working surface area to demonstrate a complete
-software-engineering agent platform:
-
-```text
-Agent Runtime
-+ Local Developer UX
-+ Business REST Boundary
-+ GitHub Workflow Boundary
-+ Verification
-+ Review
-+ Auditability
-+ Deployment Path
-```
-
-The project should now be frozen except for validation fixes and public-release
-polish. Further feature expansion would reduce focus more than it would improve
-the core project.
+- Kubernetes 或大规模分布式编排；
+- Redis、Kafka 等额外队列基础设施；
+- 多 Agent 编排平台；
+- IDE 插件或完整编辑器；
+- 完整管理后台；
+- 未经审核自动合并主分支。

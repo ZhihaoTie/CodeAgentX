@@ -1,227 +1,153 @@
-# Real GitHub Target Repository E2E
+# GitHub 端到端验收指南
 
-This document records the reproducible vertical-slice path for running CodeAgent-X against a real GitHub repository.
+本文用于复现 CodeAgent-X 的完整云端闭环。
 
-The purpose is to prove the platform loop:
-
-```text
-REST / GitHub task intake
- -> persisted Task / Run
- -> Python runtime execution
- -> patch and test evidence
- -> human authorization
- -> patch branch / commit / push
- -> Pull Request
- -> GitHub Actions CI writeback
- -> final platform status
-```
-
-## Target repository role
-
-`https://github.com/ZhihaoTie/CodeAgent.git` is the target/input repository used by the platform demo.
-
-It is not the CodeAgent-X platform repository. CodeAgent-X checks out this repository into a managed runtime workspace, lets the Python execution plane modify it, and then asks the Java control plane to publish the resulting patch back as a pull request.
-
-## Prerequisites
-
-- JDK 17
-- Maven
-- Python 3.13
-- Git
-- A GitHub token configured through local environment variables or deployment secrets
-- The target repository configured with a GitHub Actions workflow
-
-Do not commit local secret files. `.env` and `.codeagentx/` are intentionally ignored.
-
-## Start the Python runtime
-
-From the project root:
-
-```powershell
-py -3.13 -B -m codeagentx.service --host 127.0.0.1 --port 8765
-```
-
-## Start the Java control plane
-
-For a local smoke run with H2:
-
-```powershell
-cd control-plane
-mvn spring-boot:run "-Dspring-boot.run.profiles=smoke"
-```
-
-For real GitHub PR publication, configure:
-
-```powershell
-$env:CODEAGENTX_PUBLISHER_MODE="github"
-$env:CODEAGENTX_GITHUB_TOKEN="..."
-$env:CODEAGENTX_GITHUB_BASE_BRANCH="main"
-$env:CODEAGENTX_GITHUB_REMOTE_NAME="origin"
-$env:CODEAGENTX_GITHUB_DEFAULT_VERIFICATION_COMMAND="py -3.13 -B -m unittest discover -s tests -v"
-```
-
-Optionally configure:
-
-```powershell
-$env:CODEAGENTX_GITHUB_REPOSITORY="ZhihaoTie/CodeAgent"
-```
-
-## Preflight checks
-
-Check service health:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:8080/api/health
-```
-
-Check publication readiness without exposing token values:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:8080/api/config/preflight
-```
-
-Expected readiness:
+## 验收目标
 
 ```text
-runtime reachable
-publisherMode github
-tokenConfigured true
-repositoryConfigured true
-status ready
+Issue → Webhook → Task / Run → Agent 修改 → 测试
+      → APPROVE → AUTHORIZE_PR → PR → CI → SUCCEEDED
 ```
 
-## Submit the target repository task
-
-From the project root:
-
-```powershell
-py -3.13 -B demos/run_target_repo_rest_smoke.py
-```
-
-Submit the same target repository through the GitHub issue webhook path:
-
-```powershell
-py -3.13 -B demos/run_target_repo_issue_webhook_smoke.py
-```
-
-Replay the same GitHub issue delivery twice to verify webhook idempotency:
-
-```powershell
-py -3.13 -B demos/run_duplicate_issue_webhook_smoke.py
-```
-
-Replay the same GitHub workflow_run delivery twice to verify CI writeback idempotency:
-
-```powershell
-py -3.13 -B demos/run_duplicate_workflow_run_smoke.py
-```
-
-Run the stuck-runtime timeout smoke with a short control-plane timeout:
-
-```powershell
-py -3.13 -B demos/run_timeout_smoke.py
-```
-
-Run the runtime submit retry smoke with retry attempts enabled:
-
-```powershell
-$env:CODEAGENTX_RUNTIME_SUBMIT_MAX_ATTEMPTS="3"
-$env:CODEAGENTX_RUNTIME_SUBMIT_RETRY_BACKOFF_MS="100"
-py -3.13 -B demos/run_runtime_submit_retry_smoke.py
-```
-
-Run the worker concurrency-limit smoke with the control-plane worker size set to 1:
-
-```powershell
-$env:CODEAGENTX_WORKER_CORE_POOL_SIZE="1"
-$env:CODEAGENTX_WORKER_MAX_POOL_SIZE="1"
-$env:CODEAGENTX_WORKER_QUEUE_CAPACITY="10"
-```
-
-```powershell
-py -3.13 -B demos/run_concurrency_limit_smoke.py
-```
-
-The smoke script submits a REST task for the target repository and waits until the run reaches a reviewable or terminal state.
-
-Expected reviewable state:
+测试目标仓库与 CodeAgent-X 平台仓库应分开。已验证的目标仓库是：
 
 ```text
-NEEDS_REVIEW
+https://github.com/ZhihaoTie/CodeAgent
 ```
 
-## Authorize publication
+## 前置条件
 
-When the artifact has a clean diff and passing test report, authorize PR creation:
+- Compose 服务健康；
+- GitHub Publisher 为 `github`；
+- Token 具有读取仓库、推送分支和创建 PR 的权限；
+- Webhook Secret 已配置；
+- 目标仓库存在 CI Workflow；
+- GitHub 能访问 `/api/webhooks/github`。
 
-```powershell
-$body = @{
-  decision = "AUTHORIZE_PR"
-  comment = "Publish this verified patch as a pull request."
-} | ConvertTo-Json
+先检查：
 
-Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://127.0.0.1:8080/api/runs/{runId}/review" `
-  -ContentType "application/json" `
-  -Body $body
+```bash
+curl -sS http://127.0.0.1:8080/api/health
+curl -sS http://127.0.0.1:8080/api/config/preflight
 ```
 
-This triggers the control plane to:
+## 第一步：触发任务
+
+在目标仓库创建一个描述明确、范围小且可测试的 Issue，例如：
 
 ```text
-prepare deterministic patch branch
-stage modified repository files
-create patch commit
-push branch to origin
-create GitHub pull request
-record PR URL and patch metadata
+Title: Fix title normalization
+Body: Make normalize_title trim whitespace and return title case. Run the existing tests.
 ```
 
-## CI writeback
+GitHub Webhook 成功后查询：
 
-GitHub Actions emits a `workflow_run` webhook for the PR branch.
+```bash
+curl -sS http://127.0.0.1:8080/api/runs/summary
+```
 
-The control plane matches the webhook by:
+记录最新的 `runId`。
+
+## 第二步：等待 Agent 完成
+
+```bash
+RUN_ID="<run-id>"
+curl -sS "http://127.0.0.1:8080/api/runs/$RUN_ID"
+```
+
+状态应依次经过：
 
 ```text
-workflow_run.head_branch == run.patchBranch
+CREATED → QUEUED → RUNNING → NEEDS_REVIEW
 ```
 
-Expected state transitions:
+检查以下内容：
+
+- `patchArtifact.diffText` 只包含预期修改；
+- `testReport.status` 为 `passed`；
+- `changedFiles` 不包含 `.codeagentx/`；
+- `failureReason` 为空。
+
+## 第三步：审核补丁
+
+先认可补丁：
+
+```bash
+curl -sS -X POST "http://127.0.0.1:8080/api/runs/$RUN_ID/review" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "decision": "APPROVE",
+    "comment": "Patch and verification reviewed."
+  }'
+```
+
+状态应变为 `APPROVED`。注意枚举值是 `APPROVE`，不是 `APPROVED`。
+
+然后授权创建 PR：
+
+```bash
+curl -sS -X POST "http://127.0.0.1:8080/api/runs/$RUN_ID/review" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "decision": "AUTHORIZE_PR",
+    "comment": "Authorize PR publication."
+  }'
+```
+
+不能跳过顺序：`APPROVE` 仅允许在 `NEEDS_REVIEW` 执行，`AUTHORIZE_PR` 仅允许在 `APPROVED` 执行。
+
+## 第四步：PR 与 CI
+
+授权后应出现：
 
 ```text
-PR_CREATED -> CI_RUNNING -> SUCCEEDED
+PR_CREATING
+ → PATCH_BRANCH_PREPARED
+ → PATCH_COMMITTED
+ → PATCH_PUSHED
+ → PR_CREATED
+ → CI_RUNNING
+ → SUCCEEDED
 ```
 
-If running locally without a public webhook receiver, CI writeback can be simulated by posting a local `workflow_run` payload to:
+GitHub Actions 的 `workflow_run.head_branch` 必须与 Run 的 `patchBranch` 匹配，Control Plane 才能关联 CI。
+
+## 第五步：审计
+
+```bash
+curl -sS "http://127.0.0.1:8080/api/runs/$RUN_ID/audit"
+```
+
+最终应满足：
 
 ```text
-POST /api/webhooks/github
+hasPatch    = true
+hasVerification = true
+hasReview   = true
+hasPr       = true
+hasCi       = true
+status      = SUCCEEDED
 ```
 
-## Latest validated evidence
+## 已验证结果
 
 ```text
-Target repository: https://github.com/ZhihaoTie/CodeAgent.git
-Run ID: 51c1145d-e825-4815-ac95-7c047ef73e78
-Runtime run ID: 00920fb1-f433-4d77-b28c-825931f21e21
-Patch branch: codeagentx/run-51c1145d-e825-4815-ac95-7c047ef73e78
-Patch commit: 24894da3619e57a0d28c31a926cd5233367fc387
-Pull request: https://github.com/ZhihaoTie/CodeAgent/pull/1
-CI run: https://github.com/ZhihaoTie/CodeAgent/actions/runs/32764128036
-Final platform status: SUCCEEDED
+目标仓库：https://github.com/ZhihaoTie/CodeAgent
+补丁分支：codeagentx/run-<runId>
+验证命令：python -m unittest discover -s tests -v
+PR：成功创建
+GitHub Actions：成功
+CI 回写：成功
+最终平台状态：SUCCEEDED
 ```
 
-The validated patch changed the target repository implementation and passed:
+## 故障定位顺序
 
-```powershell
-py -3.13 -B -m unittest discover -s tests -v
-```
-
-## Artifact hygiene
-
-Runtime-private artifacts such as `.codeagentx/` must not appear as target repository code changes.
-
-The control plane collects patch evidence from the prepared Git workspace and filters private runtime directories from `git status --porcelain` before exposing changed files in run artifacts.
+1. Webhook 没有 Run：检查 GitHub Delivery、Tunnel 和 Secret。
+2. Clone 失败：在 Control Plane 容器内手动测试 `git clone`。
+3. Runtime 不能写：对比两个容器的 `id` 和工作区 ACL。
+4. 长时间 `RUNNING`：查看 Runtime 日志并调用 `/refresh`。
+5. Commit 失败：检查 Git Identity 与 `safe.directory`。
+6. Push 失败：检查部署镜像版本、Token 权限和出口网络。
+7. PR 后不结束：确认订阅 `workflow_run` 且 Head Branch 匹配。
 
