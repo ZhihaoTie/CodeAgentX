@@ -17,9 +17,10 @@ RUN apt-get update \
     && mkdir -p /workspaces \
     && chown -R codeagentx:codeagentx /app /workspaces
 
-RUN groupmod --gid 1000 codeagentx \
+RUN existing_user="$(getent passwd 1000 | cut -d: -f1 || true)" \
+    && if [ -n "$existing_user" ] && [ "$existing_user" != "codeagentx" ]; then userdel -r "$existing_user" 2>/dev/null || userdel "$existing_user"; fi \
     && usermod --uid 1000 --gid 1000 codeagentx \
-    && chown -R codeagentx:codeagentx /app /workspaces /home/codeagentx
+    && chown -R 1000:1000 /app /workspaces /home/codeagentx
 
 COPY --from=build /workspace/target/control-plane-0.1.0-SNAPSHOT.jar /app/control-plane.jar
 
