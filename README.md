@@ -77,16 +77,38 @@ Main module:
 control-plane/
 ```
 
+## What deployment is meant to prove
+
+CodeAgent-X is considered complete for this phase when these three entrypoints
+all exercise the same execution loop:
+
+| Entry point | Intended user | What it proves |
+| --- | --- | --- |
+| Local CLI | Individual developer | A developer can hand a failing verifier to the agent and get a patch, test result, and diff in the current checkout. |
+| Generic REST adapter | External product or business system | Another system can create auditable agent tasks without owning workspace internals. |
+| GitHub platform mode | Repository workflow | A GitHub Issue can become an agent run, human-reviewed patch, pull request, and CI-tracked result. |
+
+The server deployment is therefore not meant to be a chat UI replacement for
+Codex or Cursor. Its job is the platform workflow: webhook intake, persistence,
+review gates, PR publication, audit trails, callbacks, health, and metrics.
+For everyday personal use, the local CLI is the lighter path.
+
 ## Current status
 
 Implemented and validated:
 
-- Python runtime unit test suite: 278 tests passed locally.
+- Python runtime unit test suite: 295 tests passed locally.
 - Deterministic 3-minute runtime demo: `Task -> Plan -> Read -> Patch -> Test -> Failure -> Reflection -> Retry -> Success -> Report`.
 - Spring Boot control-plane slice with task/run workflow, review, webhook intake, generic REST adapter, optional result callbacks, CI writeback, artifact, timeline, request correlation, metrics, health, and config preflight.
 - Control-plane Maven validation: 62 tests passed on JDK 17.
 - Local benchmark framework with a completed suite-v0 ablation run: 20 local tasks x 9 variants = 180 task runs, with each configured variant resolving 20/20 local fixture tasks in the latest run.
 - SWE-bench adapter and official evaluator integration path.
+- Docker Compose deployment has been validated through health checks, generic tasks,
+  GitHub webhook intake, agent patching, verifier execution, review approval, and
+  patch branch/commit preparation.
+- The final GitHub PR push/CI validation is implemented in code and remains a
+  live-environment acceptance check when the deployment host has working outbound
+  access to Docker Hub and Maven Central.
 
 Evaluation claims are intentionally conservative. The local suite and ablation harness are project evidence for this repository's fixture tasks; current public documentation does not claim an official SWE-bench resolved score.
 
@@ -152,7 +174,8 @@ codeagentx fix --verify "pytest -q" --yes
 ```
 
 `fix` first runs the verifier. If it already passes, no agent run is started. If
-it fails, CodeAgent-X injects the exit code, stdout, and stderr into the task
+it fails, CodeAgent-X prints a short failure summary, extracts failing test names
+and likely relevant files, injects that context plus stdout/stderr into the task
 prompt, then asks the agent to inspect, patch, and rerun the same verifier.
 
 This is the lightweight developer entrypoint: CodeAgent-X works in your current
@@ -299,6 +322,27 @@ py -3.13 -B demos/run_concurrency_limit_smoke.py
 | Real target-repository E2E record | `docs/e2e-github-target.md` |
 
 The reliability smokes use fake runtimes where appropriate. This makes the failure modes deterministic and locally reproducible instead of depending on live external failures.
+
+## Current scope freeze
+
+The project is now in a stabilization phase. The goal is to make the existing
+vertical slices easy to run, verify, and explain.
+
+In scope before freezing:
+
+- polish `codeagentx doctor`, `codeagentx init`, and `codeagentx fix`;
+- keep the Generic REST and GitHub platform flows stable;
+- finish live PR/CI acceptance when the deployment network allows it;
+- update runbooks, evidence records, and public release notes.
+
+Not in current scope:
+
+- Kubernetes, Kafka, Spring Cloud, or high-availability orchestration;
+- Redis queues, distributed leases, or complex worker fencing;
+- multi-agent orchestration, RAG, or long-lived memory platform work;
+- IDE plugins, full TUI/editor experiences, or admin dashboards;
+- additional third-party integrations such as Jira/GitLab beyond the current
+  generic REST and GitHub paths.
 
 ## Important endpoints
 
