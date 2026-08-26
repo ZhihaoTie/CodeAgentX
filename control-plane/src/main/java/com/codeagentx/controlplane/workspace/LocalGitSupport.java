@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -39,9 +40,14 @@ final class LocalGitSupport {
     }
 
     static CommandResult runGit(Path cwd, String... command) {
+        return runGit(cwd, Map.of(), command);
+    }
+
+    static CommandResult runGit(Path cwd, Map<String, String> environment, String... command) {
         try {
             ProcessBuilder builder = new ProcessBuilder(command);
             builder.directory(cwd.toFile());
+            builder.environment().putAll(environment);
             builder.redirectErrorStream(true);
             Process process = builder.start();
             ByteArrayOutputStream output = new ByteArrayOutputStream();
