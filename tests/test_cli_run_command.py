@@ -221,8 +221,52 @@ class CliRunCommandTest(unittest.TestCase):
 
         self.assertEqual(exit_code, 1)
         self.assertIn("Candidate verifier commands:", output.getvalue())
+        self.assertIn("Permission mode:", output.getvalue())
+        self.assertIn("Model provider: mock", output.getvalue())
+        self.assertIn("Provider config: no API key required", output.getvalue())
+        self.assertIn("Project config: missing", output.getvalue())
+        self.assertIn("codeagentx init --verify", output.getvalue())
         self.assertIn("codeagentx fix --verify", output.getvalue())
         self.assertIn("--yes", output.getvalue())
+
+    def test_doctor_reports_project_config_and_provider_key_status(self) -> None:
+        result = SimpleNamespace(
+            passed=True,
+            status=SimpleNamespace(value="passed"),
+            stdout="ok",
+            stderr="",
+            exit_code=0,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config_dir = os.path.join(tmp, ".codeagentx")
+            os.makedirs(config_dir)
+            with open(os.path.join(config_dir, "config.json"), "w", encoding="utf-8") as handle:
+                json.dump({"verify": "pytest -q", "mode": "auto"}, handle)
+
+            with (
+                patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test-key"}, clear=False),
+                patch("codeagentx.cli._candidate_verify_commands", return_value=["pytest -q"]),
+                patch("codeagentx.cli.LocalSandboxRunner") as runner,
+            ):
+                runner.return_value.run.return_value = result
+                output = io.StringIO()
+
+                with redirect_stdout(output):
+                    exit_code = cli.main([
+                        "doctor",
+                        "--workspace-root",
+                        tmp,
+                        "--provider",
+                        "deepseek",
+                    ])
+
+        self.assertEqual(exit_code, 0)
+        visible = output.getvalue()
+        self.assertIn("Model provider: deepseek", visible)
+        self.assertIn("Provider config: DEEPSEEK_API_KEY is set", visible)
+        self.assertIn("Project config:", visible)
+        self.assertIn("Configured verifier: pytest -q", visible)
 
     def test_run_subcommand_defaults_workspace_to_current_directory(self) -> None:
         with patch("codeagentx.cli.AgentLoop") as agent_loop:

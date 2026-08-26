@@ -1315,6 +1315,17 @@ def _run_doctor(config: Config) -> int:
     workspace = Path(config.workspace_root).resolve()
     print("CodeAgent-X doctor")
     print(f"Workspace: {workspace}")
+    print(f"Permission mode: {config.permission_mode.value}")
+    print(f"Model provider: {config.model_provider}")
+    print(_format_provider_config_status(config.model_provider))
+
+    project_config_path = _project_cli_config_path(workspace)
+    if project_config_path.exists():
+        print(f"Project config: {project_config_path}")
+        if config.verification_command:
+            print(f"Configured verifier: {config.verification_command}")
+    else:
+        print("Project config: missing")
 
     git_root = _git_command(["git", "rev-parse", "--show-toplevel"], cwd=workspace)
     if git_root:
@@ -1331,6 +1342,7 @@ def _run_doctor(config: Config) -> int:
     commands = _candidate_verify_commands(workspace)
     if not commands:
         print("\nNo obvious verifier found.")
+        print(f"Initialize later with: codeagentx init --verify {_cli_arg('pytest -q')}")
         print('Try: codeagentx run "Inspect this project and suggest how to test it" --yes')
         return 0
 
@@ -1360,14 +1372,31 @@ def _run_doctor(config: Config) -> int:
 
     if result.passed:
         print("\nSuggested next step:")
+        if not project_config_path.exists():
+            print(f"  codeagentx init --verify {_cli_arg(command)} --yes")
         print(f"  codeagentx run {_cli_arg('Make the requested change')} --verify {_cli_arg(command)} --yes")
         return 0
 
     print("\nSuggested fix command:")
+    if not project_config_path.exists():
+        print(f"  codeagentx init --verify {_cli_arg(command)} --yes")
     print(f"  codeagentx fix --verify {_cli_arg(command)} --yes")
     print("\nSafer version:")
     print(f"  codeagentx fix --verify {_cli_arg(command)} --branch --commit --yes")
     return 1
+
+
+def _format_provider_config_status(provider: str) -> str:
+    required_env = {
+        "anthropic": "ANTHROPIC_API_KEY",
+        "deepseek": "DEEPSEEK_API_KEY",
+        "mock": "",
+    }.get(provider, "")
+    if not required_env:
+        return "Provider config: no API key required"
+    if os.getenv(required_env):
+        return f"Provider config: {required_env} is set"
+    return f"Provider config: missing {required_env}"
 
 
 def _candidate_verify_commands(workspace: Path) -> list[str]:
