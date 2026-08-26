@@ -19,6 +19,7 @@ RUN apt-get update \
 
 RUN existing_user="$(getent passwd 1000 | cut -d: -f1 || true)" \
     && if [ -n "$existing_user" ] && [ "$existing_user" != "codeagentx" ]; then userdel -r "$existing_user" 2>/dev/null || userdel "$existing_user"; fi \
+    && if ! getent group 1000 >/dev/null; then groupadd --gid 1000 codeagentx-shared; fi \
     && usermod --uid 1000 --gid 1000 codeagentx \
     && chown -R 1000:1000 /app /workspaces /home/codeagentx
 
