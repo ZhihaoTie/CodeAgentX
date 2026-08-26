@@ -1,447 +1,213 @@
 # CodeAgent-X
 
-CodeAgent-X is an autonomous software engineering agent runtime and control-plane prototype.
+中文 | [English](README.en.md)
 
-The project is not a chatbot wrapper around an LLM. Its goal is to make model-driven code changes controllable, reviewable, recoverable, and auditable inside real repositories.
+**把一个软件任务，可靠地变成可验证、可审核、可追踪的代码变更。**
 
-At the runtime level, CodeAgent-X already supports the core software-engineering agent loop:
+CodeAgent-X 是一个面向真实仓库的软件工程 Agent Runtime 与工作流平台。它不仅让模型读写代码，还把任务执行、测试验证、失败重试、人工审核、Pull Request 和 CI 状态组织成一条完整闭环。
 
-```text
-Task
- -> Plan
- -> Tool Call
- -> Repository Edit
- -> Verification
- -> Failure Reflection
- -> Retry
- -> Trajectory Report
-```
-
-The 2.0 direction embeds that runtime into a real development workflow:
+它不是另一个聊天界面，也不试图替代 Cursor 或 Codex。个人开发者可以使用轻量的本地 CLI；需要 GitHub 自动化、人工审批、审计记录和异步执行时，可以部署服务器端控制平面。
 
 ```text
 GitHub Issue
- -> Task / Run
- -> Python Agent Runtime
- -> Patch + Test Report
- -> Human Review
- -> Pull Request
- -> CI Status Writeback
+    ↓
+Webhook → Task / Run → Agent 修改代码 → 自动测试
+    ↓
+补丁与审计记录 → 人工审核 → Pull Request → GitHub Actions CI
+    ↓
+                       CI 结果回写 → SUCCEEDED
 ```
 
-## Architecture
+## 为什么使用 CodeAgent-X
 
-CodeAgent-X is split into two planes.
+- **从失败出发**：直接读取失败的测试或验证命令，不需要重新描述已知错误。
+- **验证优先**：修改后执行同一条验证命令，并保存结构化测试结果。
+- **安全修改**：限制工作区边界，记录补丁事务，保留回滚与审计信息。
+- **人工把关**：补丁先进入审核，只有明确授权才创建 PR。
+- **完整追踪**：任务、工具调用、重试、补丁、测试、审核、PR 和 CI 都有事件记录。
+- **三种入口**：同一套能力可通过本地 CLI、通用 REST API 或 GitHub Webhook 使用。
 
-### Python execution plane
+## 当前状态
 
-The Python runtime performs the actual repository work:
+`v0.1.0-mvp` 已完成并通过真实端到端验证：
 
-- agent loop and run state
-- tool execution
-- file read/write/edit
-- grep/glob/AST context retrieval
-- shell execution with risk classification
-- workspace safety checks
-- patch transactions and rollback metadata
-- outcome verification
-- failure reflection and retry strategy
-- trajectory storage
-- benchmark and SWE-bench adapter support
+- Python Runtime：295 项单元测试通过。
+- Java Control Plane：Maven 测试通过。
+- Docker Compose：PostgreSQL、Runtime 与 Control Plane 健康检查通过。
+- GitHub 云端闭环：Issue → Webhook → Agent → Patch → Test → Review → PR → CI → 状态回写 → `SUCCEEDED`。
+- Webhook 签名校验、重复投递幂等、运行超时、提交重试和并发限制均有实现或验证脚本。
 
-Main package:
+> 当前版本是一个经过真实 GitHub E2E 验证的完整 MVP，可作为个人自动修复工具、团队代码变更机器人，或嵌入其他系统的 Agent 执行平台。
 
-```text
-codeagentx/
-```
+## 三种使用方式
 
-### Java control plane
-
-The Spring Boot control plane manages business workflow around the runtime:
-
-- task and run persistence
-- asynchronous runtime submission
-- status polling
-- run events and timeline
-- artifact exposure
-- review decisions
-- GitHub issue webhook intake
-- GitHub workflow_run CI writeback
-- PR publication boundary
-- health and configuration preflight endpoints
-- local smoke profile
-
-Main module:
-
-```text
-control-plane/
-```
-
-## What deployment is meant to prove
-
-CodeAgent-X is considered complete for this phase when these three entrypoints
-all exercise the same execution loop:
-
-| Entry point | Intended user | What it proves |
+| 入口 | 适合场景 | 结果 |
 | --- | --- | --- |
-| Local CLI | Individual developer | A developer can hand a failing verifier to the agent and get a patch, test result, and diff in the current checkout. |
-| Generic REST adapter | External product or business system | Another system can create auditable agent tasks without owning workspace internals. |
-| GitHub platform mode | Repository workflow | A GitHub Issue can become an agent run, human-reviewed patch, pull request, and CI-tracked result. |
+| 本地 CLI | 个人开发、当前仓库快速修复 | 修改、测试结果、diff，可选分支/提交/PR |
+| 通用 REST API | 接入内部平台或业务系统 | 异步任务、状态、产物、回调与审计记录 |
+| GitHub 模式 | 团队仓库自动化 | Issue 触发、人工审批、PR 创建与 CI 回写 |
 
-The server deployment is therefore not meant to be a chat UI replacement for
-Codex or Cursor. Its job is the platform workflow: webhook intake, persistence,
-review gates, PR publication, audit trails, callbacks, health, and metrics.
-For everyday personal use, the local CLI is the lighter path.
+## 快速开始：本地 CLI
 
-## Current status
-
-Implemented and validated:
-
-- Python runtime unit test suite: 295 tests passed locally.
-- Deterministic 3-minute runtime demo: `Task -> Plan -> Read -> Patch -> Test -> Failure -> Reflection -> Retry -> Success -> Report`.
-- Spring Boot control-plane slice with task/run workflow, review, webhook intake, generic REST adapter, optional result callbacks, CI writeback, artifact, timeline, request correlation, metrics, health, and config preflight.
-- Control-plane Maven validation: 62 tests passed on JDK 17.
-- Local benchmark framework with a completed suite-v0 ablation run: 20 local tasks x 9 variants = 180 task runs, with each configured variant resolving 20/20 local fixture tasks in the latest run.
-- SWE-bench adapter and official evaluator integration path.
-- Docker Compose deployment has been validated through health checks, generic tasks,
-  GitHub webhook intake, agent patching, verifier execution, review approval, and
-  patch branch/commit preparation.
-- The final GitHub PR push/CI validation is implemented in code and remains a
-  live-environment acceptance check when the deployment host has working outbound
-  access to Docker Hub and Maven Central.
-
-Evaluation claims are intentionally conservative. The local suite and ablation harness are project evidence for this repository's fixture tasks; current public documentation does not claim an official SWE-bench resolved score.
-
-## Quick start: Python runtime
-
-Install dependencies:
+要求 Python 3.10 或更高版本。
 
 ```bash
+git clone https://github.com/ZhihaoTie/CodeAgentX.git
+cd CodeAgentX
 python -m pip install -e .
+cp .env.example .env
 ```
 
-Install the Anthropic provider extra only if you plan to use Claude models:
-
-```bash
-python -m pip install -e ".[anthropic]"
-```
-
-Run the Python test suite:
-
-```bash
-python -m unittest discover -s tests -v
-```
-
-Run the deterministic demo:
-
-```bash
-python demos/run_3min_demo.py
-```
-
-Run the local agent directly in the current repository:
-
-```bash
-codeagentx run "Fix the failing tests" --verify "python -m unittest discover -s tests -v" --yes
-```
-
-For a new project or a new machine, start with `doctor`:
+按照 `.env.example` 配置模型 Provider 和 API Key，然后检查项目：
 
 ```bash
 codeagentx doctor
 ```
 
-It detects the repository, lists likely verifier commands, runs the most likely
-one as a smoke check, and prints the exact `codeagentx fix --verify ...` command
-to use if the verifier fails.
-
-To save the verifier for this checkout, initialize a small project config:
+保存项目验证命令，之后只需运行 `fix`：
 
 ```bash
 codeagentx init --verify "pytest -q" --yes
-```
-
-This writes `.codeagentx/config.json`. After that, the usual local loop is just:
-
-```bash
 codeagentx fix --yes
 ```
 
-If you already have a failing command, use `fix` so CodeAgent-X starts from the
-failure output instead of asking you to describe the bug:
+也可以直接指定验证命令：
 
 ```bash
 codeagentx fix --verify "pytest -q" --yes
 ```
 
-`fix` first runs the verifier. If it already passes, no agent run is started. If
-it fails, CodeAgent-X prints a short failure summary, extracts failing test names
-and likely relevant files, injects that context plus stdout/stderr into the task
-prompt, then asks the agent to inspect, patch, and rerun the same verifier.
+如果验证已经通过，`fix` 不会启动 Agent；如果失败，它会提取失败测试、相关文件和 stdout/stderr，作为修复上下文交给 Agent。
 
-This is the lightweight developer entrypoint: CodeAgent-X works in your current
-checkout, edits files with the runtime tools, runs the optional verifier, and
-prints a compact summary with changed files and diff stats. Use the server-side
-control plane only when you want the asynchronous GitHub Issue -> review -> PR
-workflow.
-
-For a safer local workflow, let CodeAgent-X create a branch first and commit only
-after verification does not fail:
+### 创建分支、提交和 PR
 
 ```bash
 codeagentx run "Fix the failing tests" \
-  --verify "python -m unittest discover -s tests -v" \
+  --verify "pytest -q" \
   --branch \
   --commit \
   --yes
 ```
 
-To push the committed branch and open a GitHub pull request from local mode,
-configure a token and add `--pr`:
+配置 GitHub Token 后可增加 `--pr`，自动推送分支并创建 PR：
 
 ```bash
 export CODEAGENTX_GITHUB_TOKEN="..."
-export CODEAGENTX_GITHUB_REPOSITORY="owner/repo"  # optional if origin is a GitHub remote
 
 codeagentx run "Fix the failing tests" \
-  --verify "python -m unittest discover -s tests -v" \
-  --branch \
-  --commit \
-  --pr \
-  --yes
+  --verify "pytest -q" \
+  --branch --commit --pr --yes
 ```
 
-Use `codeagentx chat` for an interactive local session. The module form also
-works without installation: `python -m codeagentx run "..."`.
+交互使用：`codeagentx chat`。
 
-Start the runtime service:
-
-```bash
-python -m codeagentx.service --host 127.0.0.1 --port 8765
-```
-
-## Quick start: control plane
-
-The control plane requires JDK 17 and Maven.
-
-Run tests:
-
-```bash
-cd control-plane
-mvn test
-```
-
-Start the Spring Boot service:
-
-```bash
-cd control-plane
-mvn spring-boot:run
-```
-
-For local smoke testing without PostgreSQL, use the smoke profile:
-
-```powershell
-cd control-plane
-mvn spring-boot:run "-Dspring-boot.run.profiles=smoke"
-```
-
-Then run:
-
-```powershell
-py -3.13 -B demos/run_control_plane_smoke.py
-```
-
-Submit the real GitHub target repository through the generic REST task path after starting the Python runtime and control plane:
-
-```powershell
-py -3.13 -B demos/run_target_repo_rest_smoke.py
-```
-
-Submit the same target repository through the GitHub issue webhook path:
-
-```powershell
-py -3.13 -B demos/run_target_repo_issue_webhook_smoke.py
-```
-
-Replay the same GitHub issue delivery twice to verify webhook idempotency:
-
-```powershell
-py -3.13 -B demos/run_duplicate_issue_webhook_smoke.py
-```
-
-Replay the same GitHub workflow_run delivery twice to verify CI writeback idempotency:
-
-```powershell
-py -3.13 -B demos/run_duplicate_workflow_run_smoke.py
-```
-
-Run the stuck-runtime timeout smoke with a short control-plane timeout:
-
-```powershell
-py -3.13 -B demos/run_timeout_smoke.py
-```
-
-Run the runtime submit retry smoke with retry attempts enabled:
-
-```powershell
-$env:CODEAGENTX_RUNTIME_SUBMIT_MAX_ATTEMPTS="3"
-$env:CODEAGENTX_RUNTIME_SUBMIT_RETRY_BACKOFF_MS="100"
-py -3.13 -B demos/run_runtime_submit_retry_smoke.py
-```
-
-Run the worker concurrency-limit smoke with the control-plane worker size set to 1:
-
-```powershell
-$env:CODEAGENTX_WORKER_CORE_POOL_SIZE="1"
-$env:CODEAGENTX_WORKER_MAX_POOL_SIZE="1"
-$env:CODEAGENTX_WORKER_QUEUE_CAPACITY="10"
-```
-
-```powershell
-py -3.13 -B demos/run_concurrency_limit_smoke.py
-```
-
-
-## Evidence checklist
-
-| Area | Command or artifact |
-| --- | --- |
-| Python runtime tests | `py -3.13 -B -m unittest discover -s tests -v` |
-| Runtime demo | `py -3.13 -B demos/run_3min_demo.py` |
-| Control-plane tests | `cd control-plane; mvn test` |
-| Local control-plane smoke | `py -3.13 -B demos/run_control_plane_smoke.py` |
-| Target REST smoke | `py -3.13 -B demos/run_target_repo_rest_smoke.py` |
-| Target GitHub issue webhook smoke | `py -3.13 -B demos/run_target_repo_issue_webhook_smoke.py` |
-| Duplicate webhook idempotency | `py -3.13 -B demos/run_duplicate_issue_webhook_smoke.py` |
-| Duplicate CI webhook idempotency | `py -3.13 -B demos/run_duplicate_workflow_run_smoke.py` |
-| Stuck runtime timeout | `py -3.13 -B demos/run_timeout_smoke.py` |
-| Runtime submit retry | `py -3.13 -B demos/run_runtime_submit_retry_smoke.py` |
-| Worker concurrency limit | `py -3.13 -B demos/run_concurrency_limit_smoke.py` |
-| Compose deployment smoke | `py -3.13 -B demos/run_compose_smoke.py` |
-| Compose restart smoke | `py -3.13 -B demos/run_compose_restart_smoke.py` |
-| Compose Generic REST callback smoke | `py -3.13 -B demos/run_compose_generic_callback_smoke.py` |
-| Real target-repository E2E record | `docs/e2e-github-target.md` |
-
-The reliability smokes use fake runtimes where appropriate. This makes the failure modes deterministic and locally reproducible instead of depending on live external failures.
-
-## Current scope freeze
-
-The project is now in a stabilization phase. The goal is to make the existing
-vertical slices easy to run, verify, and explain.
-
-In scope before freezing:
-
-- polish `codeagentx doctor`, `codeagentx init`, and `codeagentx fix`;
-- keep the Generic REST and GitHub platform flows stable;
-- finish live PR/CI acceptance when the deployment network allows it;
-- update runbooks, evidence records, and public release notes.
-
-Not in current scope:
-
-- Kubernetes, Kafka, Spring Cloud, or high-availability orchestration;
-- Redis queues, distributed leases, or complex worker fencing;
-- multi-agent orchestration, RAG, or long-lived memory platform work;
-- IDE plugins, full TUI/editor experiences, or admin dashboards;
-- additional third-party integrations such as Jira/GitLab beyond the current
-  generic REST and GitHub paths.
-
-## Important endpoints
+## 快速开始：服务器平台
 
 ```text
-POST /api/tasks
-POST /api/adapters/generic/tasks
-GET  /api/runs/{runId}
-POST /api/runs/{runId}/refresh
-POST /api/runs/recover-queued
-POST /api/runs/{runId}/review
-POST /api/runs/{runId}/cancel
-GET  /api/runs/{runId}/events
-GET  /api/runs/{runId}/timeline
-GET  /api/runs/{runId}/artifact
-GET  /api/runs/summary
-GET  /api/metrics
-GET  /api/health
-GET  /api/config/preflight
-POST /api/webhooks/github
+GitHub / External System
+          │
+          ▼
+┌──────────────────────────┐
+│ Spring Boot Control Plane│  :8080
+│ task / review / PR / CI  │
+└─────────────┬────────────┘
+              ▼
+┌──────────────────────────┐
+│ Python Agent Runtime     │  :8765（Compose 内部）
+│ plan / tools / patch/test│
+└─────────────┬────────────┘
+        shared /workspaces
+              │
+┌─────────────▼────────────┐
+│ PostgreSQL               │  （Compose 内部）
+└──────────────────────────┘
 ```
-
-The generic REST adapter is the second task-source boundary next to GitHub webhooks. It accepts external task metadata such as `externalTaskId` and `resultCallbackUrl`, plus bounded runtime overrides such as `provider`, `model`, `maxTurns`, `maxRunSeconds`, and `permissionMode`. It converts the request into the same internal `TaskExecutionSpec` and deliberately does not accept external workspace control; workspace preparation remains owned by the control plane.
-
-Every control-plane HTTP request returns `X-Request-Id`. If the caller provides the header, CodeAgent-X echoes it; otherwise the control plane generates one and places it in the logging MDC as `request_id` for basic cross-request troubleshooting.
-
-`/api/metrics` exposes a lightweight operational snapshot with run counts, status distribution, active/terminal run totals, worker limits, runtime base URL, publisher mode, callback enablement, and workspace root.
-
-Generic REST result callbacks are opt-in. When `CODEAGENTX_CALLBACKS_ENABLED=true` and a task has `resultCallbackUrl`, the control plane posts run status updates with `taskId`, `runId`, `externalTaskId`, status, runtime id, PR URL, and failure reason. Callback delivery is recorded with URL, event, status, attempt count, response code, last error, and delivery timestamp. Callback failures are isolated from the core run workflow, and callback enablement is visible through health, metrics, and config preflight responses.
-
-## Docker Compose deployment
-
-CodeAgent-X includes a production-like single-node Docker Compose path for deployment validation. It starts PostgreSQL, the Python runtime, and the Spring Boot control plane with a shared `/workspaces` volume. Only the control-plane port is published by default; the Python runtime and PostgreSQL remain inside the Compose network.
 
 ```bash
 cp .env.example .env
 docker compose up -d --build
-python demos/run_compose_smoke.py
+curl http://127.0.0.1:8080/api/health
 ```
 
-See [docs/deployment-compose.md](docs/deployment-compose.md) for the topology, trust boundaries, environment settings, local prebuilt override, and operational validation checklist. See [docs/deployment-validation.md](docs/deployment-validation.md) for the local Compose validation record and [docs/clean-server-deployment-validation.md](docs/clean-server-deployment-validation.md) for the clean Linux server validation record.
+服务器没有公网 IP 时，可以通过 Cloudflare Tunnel 等反向隧道暴露 Webhook：
 
-## GitHub publishing configuration
-
-The real GitHub PR boundary is configuration-gated.
-
-Set the publisher mode and token through local environment variables or deployment secrets:
-
-```powershell
-$env:CODEAGENTX_PUBLISHER_MODE="github"
-$env:CODEAGENTX_GITHUB_TOKEN="..."
-$env:CODEAGENTX_GITHUB_BASE_BRANCH="main"
-$env:CODEAGENTX_GITHUB_REMOTE_NAME="origin"
+```text
+https://<your-domain>/api/webhooks/github
 ```
 
-Optionally configure a global repository:
+完整拓扑和配置见 [Docker Compose 部署文档](docs/deployment-compose.md)。
 
-```powershell
-$env:CODEAGENTX_GITHUB_REPOSITORY="owner/repo"
+## GitHub 工作流
+
+1. GitHub Issue 事件发送到 `/api/webhooks/github`。
+2. Control Plane 创建 Task / Run，并准备独立工作区。
+3. Python Runtime 分析仓库、修改文件并运行验证命令。
+4. 补丁与测试报告进入 `NEEDS_REVIEW`。
+5. `APPROVE` 确认补丁，`AUTHORIZE_PR` 授权发布 PR。
+6. Control Plane 创建分支和提交，推送并调用 GitHub API 创建 PR。
+7. GitHub Actions 执行 CI，`workflow_run` 将结果回写 CodeAgent-X。
+8. CI 成功后 Run 进入 `SUCCEEDED`。
+
+双重审核是有意设计的：**认可代码变更**与**允许对外发布 PR**是两个不同的权限边界。
+
+## 核心架构
+
+### Python 执行平面
+
+`codeagentx/` 负责仓库操作：Agent Loop、文件与 Shell 工具、AST/关键词检索、风险分类、工作区安全、补丁事务、验证、失败反思、重试、轨迹记录、Benchmark 和 SWE-bench 适配。
+
+### Java 控制平面
+
+`control-plane/` 负责平台工作流：Task / Run 持久化、异步调度、状态机、事件时间线、GitHub Webhook、人工审核、PR 发布、通用 REST Adapter、回调、健康检查和指标。
+
+## 常用 API
+
+```text
+POST /api/adapters/generic/tasks   创建通用任务
+GET  /api/runs/{runId}             查询运行状态
+POST /api/runs/{runId}/refresh     同步 Runtime 结果
+POST /api/runs/{runId}/review      提交审核决定
+GET  /api/runs/{runId}/audit       获取完整审计信息
+GET  /api/runs/summary             查看运行汇总
+GET  /api/health                   健康检查
+GET  /api/config/preflight         配置预检
+POST /api/webhooks/github          GitHub Webhook 入口
 ```
 
-If no global repository is configured, each task can provide `repositoryFullName`.
-
-Check readiness without exposing secret values:
+## 测试
 
 ```bash
-curl http://127.0.0.1:8080/api/config/preflight
+# Python Runtime
+python -m unittest discover -s tests -v
+
+# Control Plane（JDK 17 + Maven）
+cd control-plane && mvn test
+
+# 确定性三分钟演示
+python demos/run_3min_demo.py
 ```
 
-## Repository layout
+## 仓库结构
 
 ```text
-codeagentx/                    Python agent runtime
-control-plane/                 Spring Boot business/control plane
-demos/                         deterministic local demos
-benchmarks/                    local benchmark specs and fixtures
-tests/                         Python unit tests
-docs/codeagentx-2.0-plan.md    public 2.0 project plan
-docs/e2e-github-target.md      real target-repository E2E runbook
-docs/deployment-validation.md  current Compose deployment validation record
-docs/clean-server-deployment-validation.md clean Linux server deployment validation record
-docs/public-release-checklist.md public release gate checklist
+codeagentx/         Python Agent Runtime
+control-plane/      Spring Boot Control Plane
+tests/              Python 单元测试
+demos/              本地与部署验收脚本
+benchmarks/         Benchmark 配置与夹具
+examples/           示例配置和输入
+docs/               架构、部署与验收文档
 ```
 
-Private runtime outputs, local reports, API keys, benchmark artifacts, and temporary workspaces are excluded through `.gitignore`.
+## 项目边界
 
-## Project direction
+CodeAgent-X 当前关注单机或单服务器上的可靠工程闭环。Kubernetes、Kafka、分布式队列、多 Agent 编排、IDE 插件和完整管理后台不属于 MVP 范围。
 
-The next major milestone is a real vertical slice:
+只需要日常辅助编码时，本地 CLI 是最轻入口；需要 GitHub 自动触发、人工审批、PR/CI 回写和审计能力时，再部署 Control Plane。
 
-```text
-GitHub Issue
- -> webhook
- -> persisted Task / Run
- -> asynchronous Python runtime execution
- -> patch and test evidence
- -> explicit review authorization
- -> branch / commit / push
- -> Pull Request
- -> GitHub Actions CI writeback
-```
+## 更多文档
 
-This turns CodeAgent-X from a standalone agent runtime into a software engineering agent platform that can be embedded into a real development workflow.
+- [Docker Compose 部署](docs/deployment-compose.md)
+- [GitHub E2E 流程](docs/e2e-github-target.md)
+- [发布检查清单](docs/public-release-checklist.md)
+- [项目总结](docs/project-summary.md)
