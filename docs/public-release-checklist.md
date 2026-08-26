@@ -132,6 +132,7 @@ Clean server validation is tracked separately in:
 
 ```text
 docs/clean-server-deployment-validation.md
+docs/final-validation.md
 ```
 
 For disposable Linux validation, keep deploy files, PostgreSQL data, and runtime workspaces under one removable root such as `/data/fast/zhihao`.
@@ -187,3 +188,17 @@ README and docs describe only verified behavior
 ```
 
 If a GitHub token is configured locally, keep it in `.env` or the platform secret store only. Never commit it, echo it, or paste it into public logs.
+
+## 8. Final summary artifacts
+
+Before tagging a final release, update:
+
+```text
+docs/final-validation.md
+docs/project-summary.md
+README.md
+```
+
+These files define the public completion boundary. If live infrastructure blocks
+an acceptance check, record the environmental blocker explicitly instead of
+expanding the product scope.
