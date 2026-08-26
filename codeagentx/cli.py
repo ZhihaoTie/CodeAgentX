@@ -5,10 +5,13 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+import os
+import re
 import shlex
 import subprocess
 import sys
 from pathlib import Path
+from urllib import error, request
 
 from .agent import AgentLoop
 from .config import (
@@ -107,6 +110,31 @@ def build_parser() -> argparse.ArgumentParser:
         "--commit-message",
         default=None,
         help="Commit message used with --commit",
+    )
+    parser.add_argument(
+        "--pr",
+        action="store_true",
+        help="Push the committed branch and create a GitHub pull request",
+    )
+    parser.add_argument(
+        "--pr-title",
+        default=None,
+        help="Pull request title used with --pr",
+    )
+    parser.add_argument(
+        "--pr-body",
+        default=None,
+        help="Pull request body used with --pr",
+    )
+    parser.add_argument(
+        "--base",
+        default=env_str("CODEAGENTX_GITHUB_BASE_BRANCH", "main"),
+        help="Base branch for --pr (default: CODEAGENTX_GITHUB_BASE_BRANCH or main)",
+    )
+    parser.add_argument(
+        "--remote",
+        default=env_str("CODEAGENTX_GITHUB_REMOTE_NAME", "origin"),
+        help="Git remote used by --pr (default: CODEAGENTX_GITHUB_REMOTE_NAME or origin)",
     )
     parser.add_argument(
         "--max-turns",
@@ -714,6 +742,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error('the "run" command requires a prompt, for example: codeagentx run "fix the failing tests"')
     if args.commit_message and not args.commit:
         parser.error("--commit-message requires --commit")
+    if args.pr and not args.commit:
+        parser.error("--pr requires --commit")
     if one_shot_run and "--workspace-root" not in raw_argv:
         args.workspace_root = "."
 
@@ -1112,11 +1142,22 @@ def main(argv: list[str] | None = None) -> int:
                 print()
             agent.run(args.prompt)
             if one_shot_run and args.commit:
-                _commit_after_successful_run(
+                commit_created = _commit_after_successful_run(
                     agent,
                     config,
                     message=args.commit_message or _default_commit_message(args.prompt),
                 )
+                if args.pr and commit_created:
+                    pr_url = _push_and_create_pull_request(
+                        config,
+                        remote=args.remote,
+                        base=args.base,
+                        title=args.pr_title or _default_pr_title(args.prompt),
+                        body=args.pr_body or _default_pr_body(args.prompt, agent),
+                    )
+                    print(f"Pull request: {pr_url}")
+                elif args.pr:
+                    print("Pull request: skipped, no commit was created")
             if one_shot_run:
                 _print_run_summary(agent, config)
             print()
@@ -1161,7 +1202,7 @@ def _print_run_summary(agent: AgentLoop, config: Config) -> None:
         print(diff)
 
 
-def _commit_after_successful_run(agent: AgentLoop, config: Config, *, message: str) -> None:
+def _commit_after_successful_run(agent: AgentLoop, config: Config, *, message: str) -> bool:
     state = getattr(agent, "last_state", None)
     verification = getattr(state, "verification_report", None)
     if isinstance(verification, dict) and verification.get("status") == "failed":
@@ -1171,11 +1212,43 @@ def _commit_after_successful_run(agent: AgentLoop, config: Config, *, message: s
     status = _git_command(["git", "status", "--short"], cwd=workspace)
     if not status:
         print("Commit: skipped, no local changes")
-        return
+        return False
 
     _git_checked(["git", "add", "-A"], cwd=workspace)
     _git_checked(["git", "commit", "-m", message], cwd=workspace)
     print(f"Commit: {message}")
+    return True
+
+
+def _push_and_create_pull_request(
+    config: Config,
+    *,
+    remote: str,
+    base: str,
+    title: str,
+    body: str,
+) -> str:
+    workspace = Path(config.workspace_root).resolve()
+    branch = _git_checked(["git", "branch", "--show-current"], cwd=workspace).strip()
+    if not branch:
+        raise RuntimeError("cannot create PR from a detached HEAD")
+
+    repository = os.getenv("CODEAGENTX_GITHUB_REPOSITORY") or _repository_from_remote(
+        _git_checked(["git", "remote", "get-url", remote], cwd=workspace)
+    )
+    token = os.getenv("CODEAGENTX_GITHUB_TOKEN")
+    if not token:
+        raise RuntimeError("CODEAGENTX_GITHUB_TOKEN is required for --pr")
+
+    _git_checked(["git", "push", "-u", remote, branch], cwd=workspace)
+    return _create_github_pull_request(
+        repository=repository,
+        token=token,
+        base=base,
+        head=branch,
+        title=title,
+        body=body,
+    )
 
 
 def _resolve_branch_name(value: str | None) -> str:
@@ -1192,6 +1265,90 @@ def _default_commit_message(prompt: str) -> str:
     if len(normalized) > 72:
         normalized = normalized[:69].rstrip() + "..."
     return f"CodeAgent-X: {normalized}"
+
+
+def _default_pr_title(prompt: str) -> str:
+    normalized = " ".join(prompt.split())
+    if not normalized:
+        return "CodeAgent-X changes"
+    if len(normalized) > 80:
+        normalized = normalized[:77].rstrip() + "..."
+    return normalized[0].upper() + normalized[1:]
+
+
+def _default_pr_body(prompt: str, agent: AgentLoop) -> str:
+    state = getattr(agent, "last_state", None)
+    task_id = getattr(state, "task_id", None)
+    verification = getattr(state, "verification_report", None)
+    lines = [
+        "Created by CodeAgent-X local run.",
+        "",
+        f"Prompt: {prompt}",
+    ]
+    if task_id:
+        lines.append(f"Task: {task_id}")
+    if isinstance(verification, dict):
+        status = verification.get("status", "unknown")
+        summary = verification.get("summary", "")
+        lines.append(f"Verification: {status}" + (f" - {summary}" if summary else ""))
+    return "\n".join(lines)
+
+
+def _repository_from_remote(remote_url: str) -> str:
+    value = remote_url.strip()
+    patterns = [
+        r"github\.com[:/](?P<repo>[^/]+/[^/.]+)(?:\.git)?$",
+        r"github\.com[:/](?P<repo>[^/]+/[^/]+?)(?:\.git)?(?:/)?$",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, value)
+        if match:
+            return match.group("repo")
+    raise RuntimeError(
+        "could not infer GitHub repository from remote; set CODEAGENTX_GITHUB_REPOSITORY=owner/repo"
+    )
+
+
+def _create_github_pull_request(
+    *,
+    repository: str,
+    token: str,
+    base: str,
+    head: str,
+    title: str,
+    body: str,
+) -> str:
+    api_base = os.getenv("CODEAGENTX_GITHUB_API_BASE_URL", "https://api.github.com").rstrip("/")
+    payload = json.dumps({
+        "title": title,
+        "head": head,
+        "base": base,
+        "body": body,
+    }).encode("utf-8")
+    http_request = request.Request(
+        f"{api_base}/repos/{repository}/pulls",
+        data=payload,
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "User-Agent": "CodeAgent-X",
+        },
+    )
+    try:
+        with request.urlopen(http_request, timeout=30) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"GitHub PR creation failed with HTTP {exc.code}: {detail}") from exc
+    except error.URLError as exc:
+        raise RuntimeError(f"GitHub PR creation failed: {exc}") from exc
+
+    url = data.get("html_url")
+    if not isinstance(url, str) or not url:
+        raise RuntimeError("GitHub PR creation response did not include html_url")
+    return url
 
 
 def _git_checked(command: list[str], *, cwd: Path) -> str:

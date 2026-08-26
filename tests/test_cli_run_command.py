@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import os
 from types import SimpleNamespace
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -139,6 +140,90 @@ class CliRunCommandTest(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         git_checked.assert_not_called()
         self.assertIn("refusing to commit because verification failed", stderr.getvalue())
+
+    def test_run_subcommand_pr_requires_commit(self) -> None:
+        stderr = io.StringIO()
+
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            cli.main(["run", "--pr", "Fix", "app"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--pr requires --commit", stderr.getvalue())
+
+    def test_run_subcommand_can_commit_push_and_create_pr(self) -> None:
+        git_calls: list[list[str]] = []
+        old_token = os.environ.get("CODEAGENTX_GITHUB_TOKEN")
+        old_repo = os.environ.get("CODEAGENTX_GITHUB_REPOSITORY")
+        os.environ["CODEAGENTX_GITHUB_TOKEN"] = "token"
+        os.environ["CODEAGENTX_GITHUB_REPOSITORY"] = "ZhihaoTie/CodeAgentX"
+
+        def git_checked(command, *, cwd):
+            git_calls.append(list(command))
+            if command == ["git", "branch", "--show-current"]:
+                return "codeagentx/test\n"
+            if command == ["git", "remote", "get-url", "origin"]:
+                return "https://github.com/ZhihaoTie/CodeAgentX.git\n"
+            return ""
+
+        try:
+            with (
+                patch("codeagentx.cli.AgentLoop") as agent_loop,
+                patch("codeagentx.cli._git_checked", side_effect=git_checked),
+                patch("codeagentx.cli._git_command") as git_command,
+                patch("codeagentx.cli._create_github_pull_request", return_value="https://github.com/ZhihaoTie/CodeAgentX/pull/1") as create_pr,
+            ):
+                git_command.side_effect = [" M app.py", " M app.py", " app.py | 2 +-"]
+                agent = agent_loop.return_value
+                agent.last_state = SimpleNamespace(
+                    task_id="task-1",
+                    verification_report={"status": "passed", "summary": "ok"},
+                )
+                output = io.StringIO()
+
+                with redirect_stdout(output):
+                    exit_code = cli.main([
+                        "run",
+                        "--provider",
+                        "mock",
+                        "--model",
+                        "mock-model",
+                        "--no-trajectory",
+                        "--commit",
+                        "--pr",
+                        "--base",
+                        "main",
+                        "Fix",
+                        "app",
+                    ])
+        finally:
+            _restore_env("CODEAGENTX_GITHUB_TOKEN", old_token)
+            _restore_env("CODEAGENTX_GITHUB_REPOSITORY", old_repo)
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn(["git", "push", "-u", "origin", "codeagentx/test"], git_calls)
+        create_pr.assert_called_once()
+        kwargs = create_pr.call_args.kwargs
+        self.assertEqual(kwargs["repository"], "ZhihaoTie/CodeAgentX")
+        self.assertEqual(kwargs["head"], "codeagentx/test")
+        self.assertEqual(kwargs["base"], "main")
+        self.assertIn("Pull request: https://github.com/ZhihaoTie/CodeAgentX/pull/1", output.getvalue())
+
+    def test_repository_from_remote_supports_https_and_ssh(self) -> None:
+        self.assertEqual(
+            cli._repository_from_remote("https://github.com/ZhihaoTie/CodeAgentX.git"),
+            "ZhihaoTie/CodeAgentX",
+        )
+        self.assertEqual(
+            cli._repository_from_remote("git@github.com:ZhihaoTie/CodeAgentX.git"),
+            "ZhihaoTie/CodeAgentX",
+        )
+
+
+def _restore_env(name: str, value: str | None) -> None:
+    if value is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = value
 
 
 if __name__ == "__main__":

@@ -133,6 +133,21 @@ python -m codeagentx run "Fix the failing tests" \
   --yes
 ```
 
+To push the committed branch and open a GitHub pull request from local mode,
+configure a token and add `--pr`:
+
+```bash
+export CODEAGENTX_GITHUB_TOKEN="..."
+export CODEAGENTX_GITHUB_REPOSITORY="owner/repo"  # optional if origin is a GitHub remote
+
+python -m codeagentx run "Fix the failing tests" \
+  --verify "python -m unittest discover -s tests -v" \
+  --branch \
+  --commit \
+  --pr \
+  --yes
+```
+
 Start the runtime service:
 
 ```bash
