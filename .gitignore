@@ -19,11 +19,6 @@ htmlcov/
 target/
 tmp-maven-user-home/
 
-# Private planning / presentation drafts kept locally.
-docs/final-*.md
-docs/project-roadmap.md
-docs/swebench-lite-protocol.md
-docs/architecture.md
-docs/demo-3min.md
-docs/reports/
+# Private planning, reports, and presentation drafts kept locally.
+docs/local/
 

@@ -135,7 +135,7 @@ If the server has no public IP, expose the webhook through a reverse tunnel such
 https://<your-domain>/api/webhooks/github
 ```
 
-See the [Docker Compose deployment guide](docs/deployment-compose.md) for the full topology and configuration.
+See the [deployment guide](docs/deployment.md) for the full topology and configuration.
 
 ## GitHub workflow
 
@@ -208,7 +208,7 @@ Use the local CLI for everyday coding assistance. Deploy the control plane when 
 ## More documentation
 
 - [Chinese documentation index](docs/README.md)
-- [Docker Compose deployment](docs/deployment-compose.md)
-- [GitHub E2E workflow](docs/e2e-github-target.md)
-- [Public release checklist](docs/public-release-checklist.md)
-- [Project summary](docs/project-summary.md)
+- [Project and architecture](docs/overview.md)
+- [Deployment guide](docs/deployment.md)
+- [GitHub workflow](docs/github-workflow.md)
+- [Release checks](docs/release.md)
