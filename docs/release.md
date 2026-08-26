@@ -80,4 +80,3 @@ git push origin <version>
 可以陈述：Runtime、Control Plane、三种入口、测试验证、人工审核、PR/CI 回写、单机 Compose、超时/重试/幂等/并发和审计能力。
 
 未经重新验证，不应声称新的官方 SWE-bench 分数、大规模分布式生产能力、任意不可信仓库安全执行，或无人审核自动合并主分支。
-

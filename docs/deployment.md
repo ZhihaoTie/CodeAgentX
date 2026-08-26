@@ -133,4 +133,3 @@ curl -sS http://127.0.0.1:8080/api/runs/summary
 - `dubious ownership`：只信任当前 Run 的 `safe.directory`，不要使用全局通配符。
 - Push 要求用户名：确认镜像包含 Token Push 实现并检查 Token 权限。
 - Tunnel 可用但构建失败：Tunnel 只解决入站访问，不能解决服务器出口网络。
-
