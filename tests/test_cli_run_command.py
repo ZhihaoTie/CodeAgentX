@@ -167,7 +167,8 @@ class CliRunCommandTest(unittest.TestCase):
                 agent = agent_loop.return_value
                 agent.last_state = None
 
-                with redirect_stdout(io.StringIO()):
+                output = io.StringIO()
+                with redirect_stdout(output):
                     exit_code = cli.main([
                         "fix",
                         "--workspace-root",
@@ -192,6 +193,12 @@ class CliRunCommandTest(unittest.TestCase):
         self.assertIn("Repository context:", prompt)
         self.assertIn("Likely relevant files from failure output:", prompt)
         self.assertIn("tests/test_app.py", prompt)
+        visible = output.getvalue()
+        self.assertIn("verifier failed; handing failure context to the agent", visible)
+        self.assertIn("Failure summary:", visible)
+        self.assertIn("Test framework: pytest", visible)
+        self.assertIn("Likely relevant files:", visible)
+        self.assertIn("tests/test_app.py", visible)
 
     def test_doctor_suggests_fix_for_failed_candidate_verifier(self) -> None:
         result = SimpleNamespace(

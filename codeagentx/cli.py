@@ -1175,11 +1175,13 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"Verify: {config.verification_command}")
                     print(f"Workspace: {Path(config.workspace_root).resolve()}")
                     return 0
+                workspace = Path(config.workspace_root).resolve()
+                _print_fix_failure_brief(initial_result, workspace=workspace)
                 args.prompt = _build_fix_prompt(
                     args.prompt,
                     command=config.verification_command or "",
                     result=initial_result,
-                    workspace=Path(config.workspace_root).resolve(),
+                    workspace=workspace,
                 )
             agent = AgentLoop(config=config, registry=registry)
             if one_shot_run:
@@ -1238,6 +1240,23 @@ def _run_initial_fix_verifier(config: Config):
             enforce_workspace=config.enforce_workspace_paths,
         ),
     )
+
+
+def _print_fix_failure_brief(result, *, workspace: Path) -> None:
+    print("CodeAgent-X fix: verifier failed; handing failure context to the agent.")
+    print(_format_fix_failure_summary(result))
+    candidates = _candidate_failure_files(
+        workspace,
+        getattr(result, "stdout", ""),
+        getattr(result, "stderr", ""),
+    )
+    if candidates:
+        print("Likely relevant files:")
+        for path in candidates[:8]:
+            print(f"  - {path}")
+        if len(candidates) > 8:
+            print(f"  - ... {len(candidates) - 8} more")
+    print()
 
 
 def _project_cli_config_path(workspace: Path) -> Path:
