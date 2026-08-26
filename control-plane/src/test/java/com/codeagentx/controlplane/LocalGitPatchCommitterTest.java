@@ -40,6 +40,39 @@ class LocalGitPatchCommitterTest {
             .isEqualTo("CodeAgent-X run " + run.getRunId());
     }
 
+    @Test
+    void configuresCommitIdentityWhenMissing() throws Exception {
+        assumeTrue(run(tempDir, "git", "--version").exitCode == 0);
+        run(tempDir, "git", "init");
+        Files.write(tempDir.resolve("app.py"), "value = 1\n".getBytes(StandardCharsets.UTF_8));
+        run(tempDir, "git", "-c", "user.email=initial@example.com", "-c", "user.name=Initial Author", "add", "app.py");
+        run(
+            tempDir,
+            "git",
+            "-c",
+            "user.email=initial@example.com",
+            "-c",
+            "user.name=Initial Author",
+            "commit",
+            "-m",
+            "initial"
+        );
+        run(tempDir, "git", "config", "--unset", "user.email");
+        run(tempDir, "git", "config", "--unset", "user.name");
+        Files.write(tempDir.resolve("app.py"), "value = 2\n".getBytes(StandardCharsets.UTF_8));
+
+        RunRecord run = new RunRecord("task-1");
+        run.setExecutionWorkspaceRoot(tempDir.toString());
+
+        PatchCommitResult result = new LocalGitPatchCommitter().commitPatch(run);
+
+        assertThat(result.getCommitSha()).hasSize(40);
+        assertThat(run(tempDir, "git", "log", "-1", "--pretty=%ae").output)
+            .isEqualTo("codeagentx@example.com");
+        assertThat(run(tempDir, "git", "log", "-1", "--pretty=%an").output)
+            .isEqualTo("CodeAgent-X");
+    }
+
     private CommandResult run(Path cwd, String... command) throws Exception {
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.directory(cwd.toFile());

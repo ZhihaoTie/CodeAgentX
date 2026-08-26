@@ -20,6 +20,7 @@ public class LocalGitPatchCommitter implements PatchCommitter {
         }
 
         LocalGitSupport.trustWorkspaceOrThrow(workspace, "patch commit");
+        configureCommitIdentity(workspace);
 
         LocalGitSupport.CommandResult status = LocalGitSupport.runGit(workspace, "git", "status", "--porcelain");
         if (status.exitCode != 0) {
@@ -54,5 +55,29 @@ public class LocalGitPatchCommitter implements PatchCommitter {
             throw new IllegalStateException("failed to resolve patch commit: " + sha.output);
         }
         return new PatchCommitResult(sha.output.trim(), "committed workspace changes");
+    }
+
+    private void configureCommitIdentity(Path workspace) {
+        LocalGitSupport.CommandResult email = LocalGitSupport.runGit(
+            workspace,
+            "git",
+            "config",
+            "user.email",
+            "codeagentx@example.com"
+        );
+        if (email.exitCode != 0) {
+            throw new IllegalStateException("failed to configure git user.email: " + email.output);
+        }
+
+        LocalGitSupport.CommandResult name = LocalGitSupport.runGit(
+            workspace,
+            "git",
+            "config",
+            "user.name",
+            "CodeAgent-X"
+        );
+        if (name.exitCode != 0) {
+            throw new IllegalStateException("failed to configure git user.name: " + name.output);
+        }
     }
 }
