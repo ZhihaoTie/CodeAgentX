@@ -66,9 +66,12 @@ final class LocalGitSupport {
             permissions.add(PosixFilePermission.OWNER_WRITE);
             permissions.add(PosixFilePermission.GROUP_READ);
             permissions.add(PosixFilePermission.GROUP_WRITE);
+            permissions.add(PosixFilePermission.OTHERS_READ);
+            permissions.add(PosixFilePermission.OTHERS_WRITE);
             if (Files.isDirectory(path)) {
                 permissions.add(PosixFilePermission.OWNER_EXECUTE);
                 permissions.add(PosixFilePermission.GROUP_EXECUTE);
+                permissions.add(PosixFilePermission.OTHERS_EXECUTE);
             }
             Files.setPosixFilePermissions(path, permissions);
         } catch (UnsupportedOperationException ignored) {
