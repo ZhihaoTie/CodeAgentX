@@ -121,6 +121,30 @@ class CliRunCommandTest(unittest.TestCase):
         self.assertIn("Command: pytest -q", prompt)
         self.assertIn("AssertionError: expected 1 got 2", prompt)
 
+    def test_doctor_suggests_fix_for_failed_candidate_verifier(self) -> None:
+        result = SimpleNamespace(
+            passed=False,
+            status=SimpleNamespace(value="failed"),
+            stdout="",
+            stderr="tests failed",
+            exit_code=1,
+        )
+
+        with (
+            patch("codeagentx.cli._candidate_verify_commands", return_value=["pytest -q"]),
+            patch("codeagentx.cli.LocalSandboxRunner") as runner,
+        ):
+            runner.return_value.run.return_value = result
+            output = io.StringIO()
+
+            with redirect_stdout(output):
+                exit_code = cli.main(["doctor", "--provider", "mock"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("Candidate verifier commands:", output.getvalue())
+        self.assertIn("codeagentx fix --verify", output.getvalue())
+        self.assertIn("--yes", output.getvalue())
+
     def test_run_subcommand_defaults_workspace_to_current_directory(self) -> None:
         with patch("codeagentx.cli.AgentLoop") as agent_loop:
             agent = agent_loop.return_value

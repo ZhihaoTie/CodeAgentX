@@ -122,6 +122,16 @@ Run the local agent directly in the current repository:
 codeagentx run "Fix the failing tests" --verify "python -m unittest discover -s tests -v" --yes
 ```
 
+For a new project or a new machine, start with `doctor`:
+
+```bash
+codeagentx doctor
+```
+
+It detects the repository, lists likely verifier commands, runs the most likely
+one as a smoke check, and prints the exact `codeagentx fix --verify ...` command
+to use if the verifier fails.
+
 If you already have a failing command, use `fix` so CodeAgent-X starts from the
 failure output instead of asking you to describe the bug:
 

@@ -725,6 +725,7 @@ def main(argv: list[str] | None = None) -> int:
     one_shot_run = False
     interactive_chat = False
     fix_from_verifier = False
+    doctor_mode = False
     if raw_argv and raw_argv[0] == "run":
         one_shot_run = True
         raw_argv = raw_argv[1:]
@@ -734,6 +735,9 @@ def main(argv: list[str] | None = None) -> int:
         raw_argv = raw_argv[1:]
     elif raw_argv and raw_argv[0] == "chat":
         interactive_chat = True
+        raw_argv = raw_argv[1:]
+    elif raw_argv and raw_argv[0] == "doctor":
+        doctor_mode = True
         raw_argv = raw_argv[1:]
 
     parser = build_parser()
@@ -758,7 +762,9 @@ def main(argv: list[str] | None = None) -> int:
         parser.error('the "fix" command requires --verify, for example: codeagentx fix --verify "pytest -q"')
     if interactive_chat and args.prompt:
         parser.error('the "chat" command does not accept a prompt; use "run" for one-shot tasks')
-    if one_shot_run and "--workspace-root" not in raw_argv:
+    if doctor_mode and args.prompt:
+        parser.error('the "doctor" command does not accept a prompt')
+    if (one_shot_run or doctor_mode) and "--workspace-root" not in raw_argv:
         args.workspace_root = "."
 
     config = Config(
@@ -811,6 +817,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     registry = ToolRegistry.default()
     benchmark_final_config_overrides = _benchmark_final_config_overrides(args)
+
+    if doctor_mode:
+        return _run_doctor(config)
 
     if args.benchmark and args.swebench:
         print("Benchmark error: use either --benchmark or --swebench, not both", file=sys.stderr)
@@ -1211,6 +1220,133 @@ def _run_initial_fix_verifier(config: Config):
             enforce_workspace=config.enforce_workspace_paths,
         ),
     )
+
+
+def _run_doctor(config: Config) -> int:
+    workspace = Path(config.workspace_root).resolve()
+    print("CodeAgent-X doctor")
+    print(f"Workspace: {workspace}")
+
+    git_root = _git_command(["git", "rev-parse", "--show-toplevel"], cwd=workspace)
+    if git_root:
+        print(f"Git root: {git_root}")
+        branch = _git_command(["git", "branch", "--show-current"], cwd=workspace)
+        if branch:
+            print(f"Branch: {branch}")
+        status = _git_command(["git", "status", "--short"], cwd=workspace)
+        changed = [line for line in (status or "").splitlines() if line.strip()]
+        print(f"Working tree changes: {len(changed)}")
+    else:
+        print("Git: not detected")
+
+    commands = _candidate_verify_commands(workspace)
+    if not commands:
+        print("\nNo obvious verifier found.")
+        print('Try: codeagentx run "Inspect this project and suggest how to test it" --yes')
+        return 0
+
+    print("\nCandidate verifier commands:")
+    for index, command in enumerate(commands, start=1):
+        print(f"  {index}. {command}")
+
+    command = config.verification_command or commands[0]
+    print(f"\nRunning smoke verifier: {command}")
+    result = LocalSandboxRunner().run(
+        command,
+        spec=SandboxSpec(
+            workspace_root=str(workspace),
+            cwd=str(workspace),
+            timeout_seconds=min(config.verification_timeout_seconds, 60),
+            max_output_chars=12_000,
+            enforce_workspace=config.enforce_workspace_paths,
+        ),
+    )
+    print(f"Result: {result.status.value} (exit {result.exit_code})")
+    if result.stdout.strip():
+        print("\nSTDOUT:")
+        print(_clip_for_prompt(result.stdout, limit=3000))
+    if result.stderr.strip():
+        print("\nSTDERR:")
+        print(_clip_for_prompt(result.stderr, limit=3000))
+
+    if result.passed:
+        print("\nSuggested next step:")
+        print(f"  codeagentx run {_cli_arg('Make the requested change')} --verify {_cli_arg(command)} --yes")
+        return 0
+
+    print("\nSuggested fix command:")
+    print(f"  codeagentx fix --verify {_cli_arg(command)} --yes")
+    print("\nSafer version:")
+    print(f"  codeagentx fix --verify {_cli_arg(command)} --branch --commit --yes")
+    return 1
+
+
+def _candidate_verify_commands(workspace: Path) -> list[str]:
+    commands: list[str] = []
+    python = _shell_quote(str(Path(sys.executable)))
+    has_tests_dir = (workspace / "tests").exists()
+    has_pytest_config = any(
+        (workspace / name).exists()
+        for name in ("pytest.ini", ".pytest.ini")
+    ) or _pyproject_mentions(workspace, "pytest")
+    if has_tests_dir:
+        commands.append(f"{python} -m unittest discover -s tests -v")
+    if has_pytest_config:
+        commands.append("pytest -q")
+    if (workspace / "pyproject.toml").exists():
+        commands.append(f"{python} -m pytest -q")
+    if (workspace / "manage.py").exists():
+        commands.append(f"{python} manage.py test")
+    if (workspace / "package.json").exists():
+        commands.append("npm test")
+    if (workspace / "pnpm-lock.yaml").exists():
+        commands.insert(0, "pnpm test")
+    if (workspace / "yarn.lock").exists():
+        commands.insert(0, "yarn test")
+    if (workspace / "pom.xml").exists():
+        commands.append("mvn test")
+    if (workspace / "build.gradle").exists() or (workspace / "build.gradle.kts").exists():
+        commands.append("./gradlew test")
+    if (workspace / "go.mod").exists():
+        commands.append("go test ./...")
+    if (workspace / "Cargo.toml").exists():
+        commands.append("cargo test")
+    return _dedupe(commands)
+
+
+def _shell_quote(value: str) -> str:
+    if sys.platform.startswith("win"):
+        escaped = value.replace('"', r'\"')
+        return f'"{escaped}"'
+    return shlex.quote(value)
+
+
+def _cli_arg(value: str) -> str:
+    if sys.platform.startswith("win"):
+        escaped = value.replace("'", "''")
+        return f"'{escaped}'"
+    return shlex.quote(value)
+
+
+def _pyproject_mentions(workspace: Path, text: str) -> bool:
+    path = workspace / "pyproject.toml"
+    if not path.exists():
+        return False
+    try:
+        return text.lower() in path.read_text(encoding="utf-8").lower()
+    except OSError:
+        return False
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
 
 
 def _build_fix_prompt(user_prompt: str | None, *, command: str, result) -> str:
