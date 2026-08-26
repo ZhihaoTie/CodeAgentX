@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import shlex
 import subprocess
@@ -86,6 +87,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--yes",
         action="store_true",
         help="Shortcut for --mode auto in one-shot runs",
+    )
+    parser.add_argument(
+        "--branch",
+        nargs="?",
+        const="",
+        default=None,
+        help=(
+            "Create and switch to a git branch before running. "
+            "Pass a name or omit the value for an auto-generated branch."
+        ),
+    )
+    parser.add_argument(
+        "--commit",
+        action="store_true",
+        help="Commit local changes after a successful run/verification",
+    )
+    parser.add_argument(
+        "--commit-message",
+        default=None,
+        help="Commit message used with --commit",
     )
     parser.add_argument(
         "--max-turns",
@@ -691,6 +712,10 @@ def main(argv: list[str] | None = None) -> int:
         args.mode = "auto"
     if one_shot_run and not args.prompt:
         parser.error('the "run" command requires a prompt, for example: codeagentx run "fix the failing tests"')
+    if args.commit_message and not args.commit:
+        parser.error("--commit-message requires --commit")
+    if one_shot_run and "--workspace-root" not in raw_argv:
+        args.workspace_root = "."
 
     config = Config(
         model_provider=args.provider,
@@ -1080,8 +1105,18 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Workspace: {Path(config.workspace_root).resolve()}")
                 if config.verification_command:
                     print(f"Verify: {config.verification_command}")
+                if args.branch is not None:
+                    branch = _resolve_branch_name(args.branch)
+                    _git_checked(["git", "checkout", "-b", branch], cwd=Path(config.workspace_root).resolve())
+                    print(f"Branch: {branch}")
                 print()
             agent.run(args.prompt)
+            if one_shot_run and args.commit:
+                _commit_after_successful_run(
+                    agent,
+                    config,
+                    message=args.commit_message or _default_commit_message(args.prompt),
+                )
             if one_shot_run:
                 _print_run_summary(agent, config)
             print()
@@ -1124,6 +1159,58 @@ def _print_run_summary(agent: AgentLoop, config: Config) -> None:
     if diff:
         print("\nDiff stat:")
         print(diff)
+
+
+def _commit_after_successful_run(agent: AgentLoop, config: Config, *, message: str) -> None:
+    state = getattr(agent, "last_state", None)
+    verification = getattr(state, "verification_report", None)
+    if isinstance(verification, dict) and verification.get("status") == "failed":
+        raise RuntimeError("refusing to commit because verification failed")
+
+    workspace = Path(config.workspace_root).resolve()
+    status = _git_command(["git", "status", "--short"], cwd=workspace)
+    if not status:
+        print("Commit: skipped, no local changes")
+        return
+
+    _git_checked(["git", "add", "-A"], cwd=workspace)
+    _git_checked(["git", "commit", "-m", message], cwd=workspace)
+    print(f"Commit: {message}")
+
+
+def _resolve_branch_name(value: str | None) -> str:
+    if value:
+        return value
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    return f"codeagentx/local-{timestamp}"
+
+
+def _default_commit_message(prompt: str) -> str:
+    normalized = " ".join(prompt.split())
+    if not normalized:
+        return "Apply CodeAgent-X changes"
+    if len(normalized) > 72:
+        normalized = normalized[:69].rstrip() + "..."
+    return f"CodeAgent-X: {normalized}"
+
+
+def _git_checked(command: list[str], *, cwd: Path) -> str:
+    try:
+        result = subprocess.run(
+            command,
+            cwd=str(cwd),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(f"git command failed: {' '.join(command)}: {exc}") from exc
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise RuntimeError(f"git command failed: {' '.join(command)}" + (f": {detail}" if detail else ""))
+    return result.stdout.strip()
 
 
 def _git_command(command: list[str], *, cwd: Path) -> str | None:

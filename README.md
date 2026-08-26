@@ -122,6 +122,17 @@ prints a compact summary with changed files and diff stats. Use the server-side
 control plane only when you want the asynchronous GitHub Issue -> review -> PR
 workflow.
 
+For a safer local workflow, let CodeAgent-X create a branch first and commit only
+after verification does not fail:
+
+```bash
+python -m codeagentx run "Fix the failing tests" \
+  --verify "python -m unittest discover -s tests -v" \
+  --branch \
+  --commit \
+  --yes
+```
+
 Start the runtime service:
 
 ```bash
