@@ -28,6 +28,7 @@ from .config import (
 from .sandbox import LocalSandboxRunner, SandboxSpec
 from .tools.base import ToolRegistry
 from .terminal import write_text
+from .verification import parse_test_output
 
 
 BANNER = """
@@ -1178,6 +1179,7 @@ def main(argv: list[str] | None = None) -> int:
                     args.prompt,
                     command=config.verification_command or "",
                     result=initial_result,
+                    workspace=Path(config.workspace_root).resolve(),
                 )
             agent = AgentLoop(config=config, registry=registry)
             if one_shot_run:
@@ -1417,12 +1419,20 @@ def _dedupe(values: list[str]) -> list[str]:
     return result
 
 
-def _build_fix_prompt(user_prompt: str | None, *, command: str, result) -> str:
+def _build_fix_prompt(
+    user_prompt: str | None,
+    *,
+    command: str,
+    result,
+    workspace: Path | None = None,
+) -> str:
     context = " ".join((user_prompt or "").split())
     if not context:
         context = "Fix the failing verification command."
     stdout = _clip_for_prompt(result.stdout)
     stderr = _clip_for_prompt(result.stderr)
+    failure_summary = _format_fix_failure_summary(result)
+    repository_context = _format_fix_repository_context(workspace, result)
     return (
         f"{context}\n\n"
         "The verification command failed before the agent started. "
@@ -1430,11 +1440,110 @@ def _build_fix_prompt(user_prompt: str | None, *, command: str, result) -> str:
         "make the smallest safe fix, and rerun the configured verifier.\n\n"
         f"Command: {command}\n"
         f"Exit code: {result.exit_code}\n\n"
+        f"{failure_summary}\n\n"
+        f"{repository_context}\n\n"
         "STDOUT:\n"
         f"```text\n{stdout}\n```\n\n"
         "STDERR:\n"
         f"```text\n{stderr}\n```"
     )
+
+
+def _format_fix_failure_summary(result) -> str:
+    parsed = parse_test_output(
+        getattr(result, "stdout", ""),
+        getattr(result, "stderr", ""),
+    )
+    lines = ["Failure summary:"]
+    if parsed.recognized:
+        lines.append(f"- Test framework: {parsed.framework.value}")
+        lines.append(f"- Test status: {parsed.status.value}")
+        if parsed.total is not None:
+            lines.append(
+                "- Tests: "
+                f"total={parsed.total}, "
+                f"passed={parsed.passed}, "
+                f"failed={parsed.failed}, "
+                f"errors={parsed.errors}, "
+                f"skipped={parsed.skipped}"
+            )
+        if parsed.failure_names:
+            lines.append("- Failing tests:")
+            for name in parsed.failure_names[:10]:
+                lines.append(f"  - {name}")
+            if len(parsed.failure_names) > 10:
+                lines.append(f"  - ... {len(parsed.failure_names) - 10} more")
+    else:
+        lines.append("- Test framework: unknown")
+        lines.append("- Inspect STDOUT/STDERR below for the failing signal.")
+    return "\n".join(lines)
+
+
+def _format_fix_repository_context(workspace: Path | None, result) -> str:
+    lines = ["Repository context:"]
+    if workspace is None:
+        lines.append("- Workspace: unknown")
+        return "\n".join(lines)
+
+    lines.append(f"- Workspace: {workspace}")
+    status = _git_command(["git", "status", "--short"], cwd=workspace)
+    if status is None:
+        lines.append("- Git status: unavailable")
+    elif status.strip():
+        lines.append("- Git status before fix:")
+        for line in status.splitlines()[:20]:
+            lines.append(f"  {line}")
+    else:
+        lines.append("- Git status before fix: clean")
+
+    candidates = _candidate_failure_files(
+        workspace,
+        getattr(result, "stdout", ""),
+        getattr(result, "stderr", ""),
+    )
+    if candidates:
+        lines.append("- Likely relevant files from failure output:")
+        for path in candidates[:20]:
+            lines.append(f"  - {path}")
+    else:
+        lines.append("- Likely relevant files from failure output: none detected")
+    return "\n".join(lines)
+
+
+def _candidate_failure_files(workspace: Path, stdout: str, stderr: str) -> list[str]:
+    text = "\n".join(part for part in (stdout or "", stderr or "") if part)
+    if not text:
+        return []
+
+    candidates: list[str] = []
+    patterns = [
+        r"([A-Za-z0-9_./\\-]+\.py)(?::\d+)?",
+        r"([A-Za-z0-9_./\\-]+\.js)(?::\d+)?",
+        r"([A-Za-z0-9_./\\-]+\.ts)(?::\d+)?",
+        r"([A-Za-z0-9_./\\-]+\.java)(?::\d+)?",
+        r"([A-Za-z0-9_./\\-]+\.go)(?::\d+)?",
+        r"([A-Za-z0-9_./\\-]+\.rs)(?::\d+)?",
+    ]
+    for pattern in patterns:
+        for match in re.finditer(pattern, text):
+            value = match.group(1).replace("\\", "/")
+            if _is_workspace_relative_file(workspace, value):
+                candidates.append(value)
+    return _dedupe(candidates)
+
+
+def _is_workspace_relative_file(workspace: Path, value: str) -> bool:
+    path = Path(value)
+    if path.is_absolute():
+        try:
+            path.relative_to(workspace)
+            return path.is_file()
+        except ValueError:
+            return False
+    normalized = Path(*[part for part in path.parts if part not in ("", ".")])
+    if ".." in normalized.parts:
+        return False
+    return (workspace / normalized).is_file()
 
 
 def _clip_for_prompt(text: str, *, limit: int = 12000) -> str:

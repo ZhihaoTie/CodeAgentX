@@ -146,35 +146,52 @@ class CliRunCommandTest(unittest.TestCase):
         result = SimpleNamespace(
             passed=False,
             stdout="",
-            stderr="AssertionError: expected 1 got 2",
+            stderr=(
+                "FAILED tests/test_app.py::test_title - AssertionError: expected 1 got 2\n"
+                "====================== 1 failed, 2 passed in 0.04s ======================"
+            ),
             exit_code=1,
         )
 
-        with (
-            patch("codeagentx.cli.LocalSandboxRunner") as runner,
-            patch("codeagentx.cli.AgentLoop") as agent_loop,
-        ):
-            runner.return_value.run.return_value = result
-            agent = agent_loop.return_value
-            agent.last_state = None
+        with tempfile.TemporaryDirectory() as tmp:
+            tests_dir = os.path.join(tmp, "tests")
+            os.makedirs(tests_dir)
+            with open(os.path.join(tests_dir, "test_app.py"), "w", encoding="utf-8") as handle:
+                handle.write("def test_title():\n    assert False\n")
 
-            with redirect_stdout(io.StringIO()):
-                exit_code = cli.main([
-                    "fix",
-                    "--provider",
-                    "mock",
-                    "--model",
-                    "mock-model",
-                    "--no-trajectory",
-                    "--verify",
-                    "pytest -q",
-                ])
+            with (
+                patch("codeagentx.cli.LocalSandboxRunner") as runner,
+                patch("codeagentx.cli.AgentLoop") as agent_loop,
+            ):
+                runner.return_value.run.return_value = result
+                agent = agent_loop.return_value
+                agent.last_state = None
+
+                with redirect_stdout(io.StringIO()):
+                    exit_code = cli.main([
+                        "fix",
+                        "--workspace-root",
+                        tmp,
+                        "--provider",
+                        "mock",
+                        "--model",
+                        "mock-model",
+                        "--no-trajectory",
+                        "--verify",
+                        "pytest -q",
+                    ])
 
         self.assertEqual(exit_code, 0)
         prompt = agent.run.call_args.args[0]
         self.assertIn("verification command failed before the agent started", prompt)
         self.assertIn("Command: pytest -q", prompt)
         self.assertIn("AssertionError: expected 1 got 2", prompt)
+        self.assertIn("Failure summary:", prompt)
+        self.assertIn("Test framework: pytest", prompt)
+        self.assertIn("tests/test_app.py::test_title", prompt)
+        self.assertIn("Repository context:", prompt)
+        self.assertIn("Likely relevant files from failure output:", prompt)
+        self.assertIn("tests/test_app.py", prompt)
 
     def test_doctor_suggests_fix_for_failed_candidate_verifier(self) -> None:
         result = SimpleNamespace(
