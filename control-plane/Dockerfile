@@ -14,9 +14,13 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl git ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && if ! getent group 1000 >/dev/null; then groupadd --gid 1000 codeagentx; fi \
-    && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash codeagentx \
+    && group_name="$(getent group 1000 | cut -d: -f1)" \
+    && existing_user="$(getent passwd 1000 | cut -d: -f1 || true)" \
+    && if [ -n "$existing_user" ] && [ "$existing_user" != "codeagentx" ]; then usermod -l codeagentx -d /home/codeagentx -m "$existing_user"; fi \
+    && if ! getent passwd codeagentx >/dev/null; then useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash codeagentx; fi \
+    && usermod --gid "$group_name" --shell /bin/bash codeagentx \
     && mkdir -p /workspaces \
-    && chown -R codeagentx:codeagentx /app /workspaces
+    && chown -R codeagentx:"$group_name" /app /workspaces
 
 COPY --from=build /workspace/target/control-plane-0.1.0-SNAPSHOT.jar /app/control-plane.jar
 
