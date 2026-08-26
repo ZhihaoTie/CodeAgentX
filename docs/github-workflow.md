@@ -7,7 +7,7 @@ Issue → Webhook → Task / Run → Agent → Patch → Test
       → APPROVE → AUTHORIZE_PR → PR → CI → SUCCEEDED
 ```
 
-建议使用独立测试仓库完成首次验收。已验证目标仓库：
+我们建议使用独立测试仓库完成首次验收。已验证目标仓库：
 
 ```text
 https://github.com/ZhihaoTie/CodeAgent
@@ -47,7 +47,7 @@ CREATED → QUEUED → RUNNING → NEEDS_REVIEW
 
 ## 两级审核
 
-先认可补丁：
+我们将“认可补丁”和“允许发布 PR”设为两个独立权限。先认可补丁：
 
 ```bash
 curl -sS -X POST "http://127.0.0.1:8080/api/runs/$RUN_ID/review" \
@@ -63,7 +63,7 @@ curl -sS -X POST "http://127.0.0.1:8080/api/runs/$RUN_ID/review" \
   -d '{"decision":"AUTHORIZE_PR","comment":"Authorize PR publication."}'
 ```
 
-注意：请求枚举值是 `APPROVE`，不是 `APPROVED`。不能跳过状态顺序。
+注意：请求枚举值是 `APPROVE`，不是 `APPROVED`。我们有意限制状态顺序，不能跳过审核直接发布。
 
 ## PR 与 CI
 
@@ -99,7 +99,7 @@ curl -sS "http://127.0.0.1:8080/api/runs/$RUN_ID/audit"
 - `workflow_run` 回写成功；
 - 最终平台状态为 `SUCCEEDED`。
 
-曾出现的 Docker Hub、Maven Central 和 Quick Tunnel 超时属于出口网络波动。网络恢复后完整闭环成功，没有剩余业务逻辑阻塞。
+验收期间曾出现 Docker Hub、Maven Central 和 Quick Tunnel 超时，我们确认它们属于出口网络波动。网络恢复后完整闭环成功，没有剩余业务逻辑阻塞。
 
 ## 故障定位
 

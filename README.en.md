@@ -4,9 +4,9 @@
 
 **Turn a software task into a verifiable, reviewable, and traceable code change.**
 
-CodeAgent-X is a software-engineering agent runtime and workflow platform for real repositories. It goes beyond model-driven code editing by organizing execution, verification, failure recovery, human review, pull requests, and CI status into one auditable loop.
+We built CodeAgent-X to provide a controlled software-engineering agent runtime and workflow platform for real repositories. It goes beyond model-driven code editing by organizing execution, verification, failure recovery, human review, pull requests, and CI status into one auditable loop.
 
-It is not another chat interface and is not intended to replace Cursor or Codex. Individual developers can use the lightweight local CLI. Teams that need GitHub automation, approval gates, audit trails, and asynchronous execution can deploy the server-side control plane.
+We do not position CodeAgent-X as another chat interface or as a replacement for Cursor or Codex. Individual developers can use the lightweight local CLI. Teams that need GitHub automation, approval gates, audit trails, and asynchronous execution can deploy the server-side control plane.
 
 ```text
 GitHub Issue

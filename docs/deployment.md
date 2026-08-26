@@ -12,7 +12,7 @@ Control Plane :8080 ─────► Runtime :8765
 PostgreSQL :5432
 ```
 
-只有 Control Plane 默认暴露到宿主机；Runtime 和 PostgreSQL 留在 Compose 私有网络。
+我们默认只把 Control Plane 暴露到宿主机；Runtime 和 PostgreSQL 留在 Compose 私有网络。
 
 ## 快速启动
 
@@ -126,7 +126,7 @@ curl -sS http://127.0.0.1:8080/api/runs/summary
 
 ## 已验证结果与常见问题
 
-干净 Linux 服务器已验证 Compose、Tunnel、Webhook、Clone、Runtime 修改、测试、审核、Push、PR、CI 回写和最终 `SUCCEEDED`。
+我们已经在干净 Linux 服务器上验证 Compose、Tunnel、Webhook、Clone、Runtime 修改、测试、审核、Push、PR、CI 回写和最终 `SUCCEEDED`。
 
 - 构建超时：通常是 Docker Hub 或 Maven Central 出口网络；已有镜像可临时 `up -d --no-build`。
 - `Permission denied`：检查两个容器 UID、目录 ACL 和新文件默认 ACL。

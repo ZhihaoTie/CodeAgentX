@@ -19,6 +19,3 @@ htmlcov/
 target/
 tmp-maven-user-home/
 
-# Private planning, reports, and presentation drafts kept locally.
-docs/local/
-
