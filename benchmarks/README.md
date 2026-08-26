@@ -1,29 +1,40 @@
 # CodeAgent-X Benchmark Suite
 
-This directory contains fixed benchmark fixtures for evaluating CodeAgent-X on small, reproducible software-engineering tasks.
+`benchmarks/` 保存我们用于验证 Agent 工程能力的固定任务和隔离夹具。这套 Benchmark 用于本地回归与消融实验，不代表官方 SWE-bench 成绩。
 
 ## Suite v0
 
-`suite-v0.json` is the first stable suite. It is intentionally compact and local-only:
+`suite-v0.json` 包含 20 个故意处于失败状态的小型任务，覆盖 Python、JavaScript 和 TypeScript：
 
-- each task has an isolated fixture workspace under `benchmarks/fixtures/`;
-- the suite currently contains 20 failing-by-design tasks across Python, JavaScript, and TypeScript;
-- each fixture starts with a failing verification command;
-- tasks include path constraints so the agent must fix implementation files instead of editing tests or notes;
-- JavaScript and TypeScript tasks use Python static validators to avoid external runtime dependencies;
-- the same suite declares ablation variants for runtime planning, context ranking, reflection, retry strategy, tool guidance, task constraints, and patch policy.
+- 每个任务使用 `benchmarks/fixtures/` 下的独立工作区；
+- 初始验证命令必须失败；
+- Path Constraint 限制 Agent 修改实现文件，不能通过修改测试绕过任务；
+- JavaScript 和 TypeScript 任务使用 Python 静态验证器，避免额外 Runtime 依赖；
+- Suite 声明 Planner、Context Ranking、Reflection、Retry、Tool Guidance、Task Constraint 和 Patch Policy 等消融变量。
 
-Run one task manually from its fixture directory:
+## 运行单个夹具
+
+进入对应 Fixture 后执行它声明的验证命令，例如：
 
 ```bash
 python -B -m unittest discover -s tests -v
 ```
 
-Run the suite through CodeAgent-X:
+## 运行完整 Suite
 
 ```bash
 python -m codeagentx --benchmark benchmarks/suite-v0.json --mode auto
-python -m codeagentx --benchmark benchmarks/suite-v0.json --benchmark-ablation --mode auto
 ```
 
-The suite is designed to measure practical agent abilities rather than raw prompt compliance: focused debugging, multi-file reasoning, path-constraint adherence, and verification-driven repair.
+运行消融实验：
+
+```bash
+python -m codeagentx \
+  --benchmark benchmarks/suite-v0.json \
+  --benchmark-ablation \
+  --mode auto
+```
+
+## 结果边界
+
+这套任务用于观察修复成功率、工具调用、Token、错误、路径约束和验证驱动修复等行为。公开材料不能把本地 Suite 结果描述为官方 SWE-bench Resolved Score。

@@ -1,291 +1,168 @@
 # CodeAgent-X Control Plane
 
-This module is the first Spring Boot control-plane slice for CodeAgent-X 2.0.
+Control Plane 是 CodeAgent-X 的平台控制层。我们使用 Spring Boot 实现任务持久化、异步调度、状态机、人工审核、GitHub Webhook、PR 发布和 CI 状态回写；实际仓库分析、编辑和验证由 Python Runtime 完成。
 
-It manages platform-level tasks, runs, and Codex-like review decisions while delegating repository execution to the Python runtime service.
+完整项目说明见：
 
-## Runtime Dependency
+- [项目与架构](../docs/overview.md)
+- [部署指南](../docs/deployment.md)
+- [GitHub 工作流](../docs/github-workflow.md)
 
-Start the Python execution plane first:
+## 环境要求
+
+- JDK 17
+- Maven
+- PostgreSQL（默认 Profile）
+- 运行中的 Python Runtime
+
+## 本地启动
+
+先在项目根目录启动 Runtime：
 
 ```powershell
 py -3.13 -B -m codeagentx.service --host 127.0.0.1 --port 8765
 ```
 
-Then start this Spring Boot service when Maven is available:
-
-```powershell
-mvn spring-boot:run
-```
-
-This project targets JDK 17.
-
-Task creation is asynchronous at the platform boundary: `POST /api/tasks` persists a task/run and returns `202 Accepted`; a bounded background worker then submits the run to the Python execution plane.
-
-Operational readiness can be checked with:
-
-```powershell
-curl http://127.0.0.1:8080/api/health
-```
-
-The health response reports database connectivity, Python runtime reachability, runtime base URL, publisher mode, workspace root, callback enablement, and whether GitHub webhook signature verification is required.
-
-Configuration readiness for real GitHub publishing can be checked with:
-
-```powershell
-curl http://127.0.0.1:8080/api/config/preflight
-```
-
-The preflight response reports whether the GitHub token, base branch, remote name, optional global repository, webhook secret, and result callback setting are configured without exposing secret values. If no global repository is configured, real GitHub publishing can still be ready as long as each task provides `repositoryFullName`; the endpoint returns that case as a warning.
-
-Run state can be summarized with:
-
-```powershell
-curl http://127.0.0.1:8080/api/runs/summary
-```
-
-The summary response includes total runs, counts by status, and the 10 most recently updated runs with only lightweight metadata.
-
-`POST /api/tasks` can also carry execution metadata that will be persisted on the task and forwarded to the Python runtime:
-
-```json
-{
-  "source": "rest",
-  "title": "Fix failing parser test",
-  "body": "Parser fails on empty input.",
-  "idempotencyKey": "manual-parser-001",
-  "repositoryUrl": "https://github.com/acme/repo.git",
-  "repositoryFullName": "acme/repo",
-  "baseBranch": "main",
-  "workspaceRoot": "D:\\workspaces\\repo",
-  "verificationCommand": "py -3.13 -B -m unittest discover -s tests -v"
-}
-```
-
-This is the first explicit boundary between business intake and execution context: the control plane records which repository/task is being requested, while the Python runtime receives the concrete workspace and verification command it needs to execute safely.
-
-Before submitting to the Python runtime, the control plane now runs a `WorkspacePreparer` boundary:
-
-```text
-explicit workspaceRoot -> validate that it exists -> pass to Python runtime
-repositoryUrl only     -> clone into managed workspace root -> checkout baseBranch -> pass to Python runtime
-preparation failure    -> mark run FAILED before runtime submission
-```
-
-The managed workspace root defaults to:
-
-```text
-../.codeagentx/control-plane/workspaces
-```
-
-Override it with:
-
-```powershell
-$env:CODEAGENTX_WORKSPACE_ROOT="D:\codeagentx-workspaces"
-```
-
-Runtime completion is also observed asynchronously. A scheduled poller refreshes `RUNNING` runs from the Python execution plane every 5 seconds by default. Override it with:
-
-```powershell
-$env:CODEAGENTX_RUNTIME_POLL_DELAY_MS="2000"
-```
-
-Long-running agent executions are failed by timeout instead of being left in `RUNNING` forever. The default timeout is 30 minutes:
-
-```powershell
-$env:CODEAGENTX_RUNTIME_RUN_TIMEOUT_MS="1800000"
-```
-
-On startup, the control plane performs a simple crash recovery pass: persisted `QUEUED` runs without a Python runtime id are resubmitted to the runtime worker. Persisted `RUNNING` runs with a runtime id are handled by the scheduled poller.
-
-PR publication is behind explicit human authorization. `AUTHORIZE_PR` moves the run through `PR_CREATING` and then calls a `ResultPublisher`. The current V1 implementation uses a no-op publisher that records a deterministic `noop://pull-requests/{runId}` URL; a real GitHub publisher will replace this boundary later without giving the agent direct remote write authority.
-
-To switch the publishing boundary to the GitHub implementation:
-
-```powershell
-$env:CODEAGENTX_PUBLISHER_MODE="github"
-$env:CODEAGENTX_GITHUB_TOKEN="<token>"
-$env:CODEAGENTX_GITHUB_REPOSITORY="owner/repo"
-$env:CODEAGENTX_GITHUB_BASE_BRANCH="main"
-$env:CODEAGENTX_GITHUB_WEBHOOK_SECRET="<github-webhook-secret>"
-```
-
-For GitHub webhook or REST tasks that carry repository metadata, PR publishing prefers task-level values:
-
-```text
-repositoryFullName -> GitHub PR target repository
-baseBranch         -> GitHub PR base branch
-```
-
-If a task does not provide these fields, the publisher falls back to `CODEAGENTX_GITHUB_REPOSITORY` and `CODEAGENTX_GITHUB_BASE_BRANCH`. This keeps local demos simple while allowing one control plane to route runs for multiple repositories.
-
-After human `AUTHORIZE_PR`, the control plane now runs a `PatchBranchPreparer` boundary before calling the publisher. The local implementation checks out a deterministic branch in the execution workspace:
-
-```text
-codeagentx/run-{runId}
-```
-
-The branch name is persisted on the run as `patchBranch` and used as the GitHub PR head branch.
-
-After the local branch is prepared, the control plane runs a `PatchCommitter` boundary. The local implementation stages workspace changes and creates a deterministic commit:
-
-```text
-CodeAgent-X run {runId}
-```
-
-The resulting commit SHA is persisted on the run as `patchCommitSha` and included in the PR body.
-
-After the local commit is created, the control plane runs a `PatchPusher` boundary. The local implementation pushes the current `HEAD` to the configured remote and branch:
-
-```text
-git push {remoteName} HEAD:{patchBranch}
-```
-
-The pushed ref is persisted on the run as `patchPushedRef` and included in the PR body. The remote name defaults to `origin`:
-
-```powershell
-$env:CODEAGENTX_GITHUB_REMOTE_NAME="origin"
-```
-
-Runtime results can now include a structured patch artifact alongside `finalText`:
-
-```text
-patchDiff
-testReport
-changedFiles
-trajectoryReportPath
-```
-
-These fields are persisted on the run and included in the GitHub PR body by the publisher boundary.
-
-The control plane also records the concrete `executionWorkspaceRoot` on each run when workspace preparation succeeds. When a runtime run reaches a terminal state, it attempts to collect repository-level patch evidence from that workspace:
-
-```text
-git diff --binary
-git status --porcelain
-```
-
-If Git diff collection succeeds, the collected diff and changed-file status are used to strengthen or backfill the run's patch artifact. If collection fails, the control plane keeps the runtime-provided artifact and does not fail an otherwise completed run.
-
-## Database
-
-The control plane persists tasks, runs, review records, and run events with Spring Data JPA.
-
-Default local PostgreSQL settings:
-
-```text
-url:      jdbc:postgresql://localhost:5432/codeagentx
-username: codeagentx
-password: codeagentx
-```
-
-You can start the local database from the repository root:
-
-```powershell
-docker compose up -d postgres
-```
-
-Or override the connection:
-
-```powershell
-$env:CODEAGENTX_DB_URL="jdbc:postgresql://localhost:5432/codeagentx"
-$env:CODEAGENTX_DB_USERNAME="codeagentx"
-$env:CODEAGENTX_DB_PASSWORD="codeagentx"
-```
-
-Tests use H2 through `@DataJpaTest`, so PostgreSQL is not required for `mvn test`.
-
-## Initial API
-
-```text
-POST /api/tasks
-POST /api/webhooks/github
-GET  /api/runs/{runId}
-GET  /api/runs/{runId}/events
-POST /api/runs/{runId}/refresh
-POST /api/runs/{runId}/review
-```
-
-`POST /api/runs/{runId}/review` accepts:
-
-```json
-{
-  "decision": "REQUEST_CHANGES",
-  "comment": "Keep the patch, but add one boundary test."
-}
-```
-
-`POST /api/tasks` may include an optional `idempotencyKey`. Reusing the same key returns the original run instead of starting a duplicate runtime execution. This is the first reliability hook for webhook replay handling.
-
-`POST /api/webhooks/github` accepts GitHub `issues` webhook events for `opened`, `reopened`, and `labeled` actions. It uses `X-GitHub-Delivery` as the idempotency source, so replayed deliveries do not start duplicate agent runs. The webhook parser also captures repository `full_name`, `clone_url`/`html_url`, and `default_branch` so later sandbox and publisher stages know which repo and base branch the issue belongs to.
-
-The same endpoint also accepts GitHub `workflow_run` events for CI status writeback. The V1 matcher uses:
-
-```text
-workflow_run.head_branch == run.patchBranch
-```
-
-Status mapping:
-
-```text
-non-completed workflow_run -> CI_RUNNING
-completed + success        -> SUCCEEDED
-completed + other result   -> FAILED
-```
-
-Supported decisions:
-
-```text
-APPROVE
-REQUEST_CHANGES
-REJECT
-AUTHORIZE_PR
-```
-
-Runs can also be cancelled explicitly:
-
-```powershell
-curl -X POST http://127.0.0.1:8080/api/runs/{runId}/cancel `
-  -H "Content-Type: application/json" `
-  -d "{\"reason\":\"No longer needed\"}"
-```
-
-Cancellation is idempotent for terminal runs; runs that already reached `SUCCEEDED`, `FAILED`, or `CANCELLED` are not changed.
-
-This is intentionally still a V1 vertical slice. PostgreSQL/JPA persistence, GitHub issue webhook intake, optional GitHub webhook signature verification, GitHub workflow_run CI writeback, task idempotency, repository execution metadata, workspace preparation boundary, execution workspace tracking, Git diff artifact collection, local patch branch preparation, local patch commit creation, remote patch push boundary, multi-repository GitHub PR target selection, bounded async runtime submission, live single-node SSE event streaming, timeout handling, startup recovery, and authorization-gated PR publishing boundary are in place. Complete GitHub PR creation depends on configuring the GitHub publisher token/repository and a pushable remote.
-`GET /api/runs/{runId}/events` first emits persisted events already recorded for the run, then stays open for new in-process events.
-
-For a point-in-time audit view without opening SSE:
-
-```powershell
-curl http://127.0.0.1:8080/api/runs/{runId}/timeline
-```
-
-The timeline response combines run events and review decisions into a lightweight ordered audit trail.
-
-For patch/test evidence:
-
-```powershell
-curl http://127.0.0.1:8080/api/runs/{runId}/artifact
-```
-
-The artifact response includes diff text, changed files, test report, trajectory report path, patch branch, commit SHA, pushed ref, and pull request URL when available.
-
-## Local Smoke Demo
-
-Start the control plane, then run the deterministic smoke driver from the repository root:
+再启动 Control Plane：
 
 ```powershell
 cd control-plane
-mvn spring-boot:run -Dspring-boot.run.profiles=smoke
+mvn spring-boot:run
 ```
 
-The `smoke` profile uses an in-memory H2 database, the noop publisher, a short runtime poll interval, and the fake runtime URL used by the demo. The default profile still targets PostgreSQL.
-
-In a second terminal:
+不依赖 PostgreSQL 的本地 Smoke Profile：
 
 ```powershell
-py -3.13 -B demos/run_control_plane_smoke.py
+mvn spring-boot:run "-Dspring-boot.run.profiles=smoke"
 ```
 
-The script starts a fake runtime on `127.0.0.1:8765`, creates a task through the control plane, waits for `NEEDS_REVIEW`, authorizes publication, expects a noop `PR_CREATED` result, then sends deterministic GitHub `workflow_run` webhooks to drive CI writeback from `CI_RUNNING` to `SUCCEEDED`.
+## 检查服务
+
+```bash
+curl http://127.0.0.1:8080/api/health
+curl http://127.0.0.1:8080/api/config/preflight
+curl http://127.0.0.1:8080/api/runs/summary
+```
+
+- `/api/health`：数据库、Runtime、Publisher、Workspace 和 Webhook 签名状态。
+- `/api/config/preflight`：GitHub Token、仓库、分支、Remote、Secret 和 Callback 配置。
+- `/api/runs/summary`：运行总数、状态分布和最近 Run。
+
+接口不会回显 Secret 的真实值。
+
+## 核心工作流
+
+```text
+Task Intake
+ → 持久化 Task / Run
+ → WorkspacePreparer
+ → 异步提交 Python Runtime
+ → 轮询并收集 Patch / Test Report
+ → NEEDS_REVIEW
+ → APPROVE
+ → AUTHORIZE_PR
+ → Branch / Commit / Push / Pull Request
+ → workflow_run CI 回写
+ → SUCCEEDED / FAILED
+```
+
+`APPROVE` 用于认可补丁，`AUTHORIZE_PR` 用于授权对外发布 PR。我们将这两个动作设计为独立权限边界。
+
+## 工作区
+
+任务可以提供仓库元数据，由 Control Plane 克隆到受管工作区；服务器端工作区路径不能由不可信外部请求任意控制。
+
+```text
+repositoryUrl → Clone 到受管 Workspace → Checkout baseBranch
+准备失败      → Run 在提交 Runtime 前进入 FAILED
+```
+
+Control Plane 会记录 `executionWorkspaceRoot`，并仅将当前 Run 工作区加入 Git `safe.directory`。Compose 部署中，Control Plane 与 Runtime 必须使用一致 UID/GID 并共享可写 `/workspaces`。
+
+## GitHub Publisher
+
+```text
+CODEAGENTX_PUBLISHER_MODE=github
+CODEAGENTX_GITHUB_TOKEN=...
+CODEAGENTX_GITHUB_REPOSITORY=owner/repo
+CODEAGENTX_GITHUB_BASE_BRANCH=main
+CODEAGENTX_GITHUB_REMOTE_NAME=origin
+CODEAGENTX_GITHUB_WEBHOOK_SECRET=...
+```
+
+授权后我们依次执行：
+
+```text
+创建 codeagentx/run-{runId} 分支
+ → 暂存业务变更
+ → 创建 CodeAgent-X run {runId} 提交
+ → 使用非交互式 Token 凭据推送
+ → 调用 GitHub API 创建 PR
+```
+
+Token 不会写入 Git Remote URL。目标仓库和 Base Branch 优先使用 Task 级配置，未提供时再使用全局环境变量。
+
+## Webhook
+
+统一入口：
+
+```text
+POST /api/webhooks/github
+```
+
+支持：
+
+- `issues`：创建任务，使用 `X-GitHub-Delivery` 保证幂等；
+- `workflow_run`：根据 `head_branch == patchBranch` 回写 CI；
+- `X-Hub-Signature-256`：配置 Secret 后强制校验签名。
+
+CI 状态映射：
+
+```text
+未完成             → CI_RUNNING
+completed + success → SUCCEEDED
+completed + 其他    → FAILED
+```
+
+## 可靠性
+
+- 有界 Worker Pool 和队列；
+- Runtime 提交重试；
+- 定时轮询 Runtime；
+- Run 超时；
+- 启动时恢复 `QUEUED` Run；
+- Webhook 与 Task 幂等；
+- Callback 投递记录；
+- Request ID；
+- 持久化事件、审核、产物和审计时间线。
+
+## 常用 API
+
+```text
+POST /api/tasks
+POST /api/adapters/generic/tasks
+POST /api/webhooks/github
+GET  /api/runs/{runId}
+POST /api/runs/{runId}/refresh
+POST /api/runs/{runId}/review
+POST /api/runs/{runId}/cancel
+GET  /api/runs/{runId}/events
+GET  /api/runs/{runId}/timeline
+GET  /api/runs/{runId}/artifact
+GET  /api/runs/{runId}/audit
+GET  /api/runs/summary
+GET  /api/health
+GET  /api/config/preflight
+GET  /api/metrics
+```
+
+## 测试
+
+测试使用 H2，不要求本地 PostgreSQL：
+
+```bash
+cd control-plane
+mvn test
+```
+
+完整 Compose 和 GitHub 验收命令见项目 [部署指南](../docs/deployment.md) 与 [GitHub 工作流](../docs/github-workflow.md)。
