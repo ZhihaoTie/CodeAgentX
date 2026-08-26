@@ -28,4 +28,3 @@
 - `legacy/` 保存早期 MiniClaudeCode 资料，不代表当前架构。
 - `reports/`、面试材料、路线草稿和本地评测输出由 `.gitignore` 排除，仅用于本地复盘。
 - 项目的最新使用入口以根目录 [README](../README.md) 为准。
-
