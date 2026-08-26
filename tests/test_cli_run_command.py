@@ -46,6 +46,15 @@ class CliRunCommandTest(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
         self.assertIn('the "run" command requires a prompt', stderr.getvalue())
 
+    def test_chat_subcommand_rejects_prompt(self) -> None:
+        stderr = io.StringIO()
+
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            cli.main(["chat", "hello"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn('the "chat" command does not accept a prompt', stderr.getvalue())
+
     def test_run_subcommand_defaults_workspace_to_current_directory(self) -> None:
         with patch("codeagentx.cli.AgentLoop") as agent_loop:
             agent = agent_loop.return_value

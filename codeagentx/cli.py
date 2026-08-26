@@ -722,8 +722,12 @@ def main(argv: list[str] | None = None) -> int:
     _configure_console()
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     one_shot_run = False
+    interactive_chat = False
     if raw_argv and raw_argv[0] == "run":
         one_shot_run = True
+        raw_argv = raw_argv[1:]
+    elif raw_argv and raw_argv[0] == "chat":
+        interactive_chat = True
         raw_argv = raw_argv[1:]
 
     parser = build_parser()
@@ -744,6 +748,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--commit-message requires --commit")
     if args.pr and not args.commit:
         parser.error("--pr requires --commit")
+    if interactive_chat and args.prompt:
+        parser.error('the "chat" command does not accept a prompt; use "run" for one-shot tasks')
     if one_shot_run and "--workspace-root" not in raw_argv:
         args.workspace_root = "."
 

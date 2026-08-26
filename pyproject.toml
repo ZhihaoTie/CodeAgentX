@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codeagentx"
+version = "0.18.0"
+description = "Autonomous software engineering agent runtime and GitHub workflow platform"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.42.0"]
+
+[project.scripts]
+codeagentx = "codeagentx.cli:main"
+codeagentx-runtime = "codeagentx.service.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["codeagentx*"]

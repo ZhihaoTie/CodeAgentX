@@ -95,7 +95,13 @@ Evaluation claims are intentionally conservative. The local suite and ablation h
 Install dependencies:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -e .
+```
+
+Install the Anthropic provider extra only if you plan to use Claude models:
+
+```bash
+python -m pip install -e ".[anthropic]"
 ```
 
 Run the Python test suite:
@@ -113,7 +119,7 @@ python demos/run_3min_demo.py
 Run the local agent directly in the current repository:
 
 ```bash
-python -m codeagentx run "Fix the failing tests" --verify "python -m unittest discover -s tests -v" --yes
+codeagentx run "Fix the failing tests" --verify "python -m unittest discover -s tests -v" --yes
 ```
 
 This is the lightweight developer entrypoint: CodeAgent-X works in your current
@@ -126,7 +132,7 @@ For a safer local workflow, let CodeAgent-X create a branch first and commit onl
 after verification does not fail:
 
 ```bash
-python -m codeagentx run "Fix the failing tests" \
+codeagentx run "Fix the failing tests" \
   --verify "python -m unittest discover -s tests -v" \
   --branch \
   --commit \
@@ -140,13 +146,16 @@ configure a token and add `--pr`:
 export CODEAGENTX_GITHUB_TOKEN="..."
 export CODEAGENTX_GITHUB_REPOSITORY="owner/repo"  # optional if origin is a GitHub remote
 
-python -m codeagentx run "Fix the failing tests" \
+codeagentx run "Fix the failing tests" \
   --verify "python -m unittest discover -s tests -v" \
   --branch \
   --commit \
   --pr \
   --yes
 ```
+
+Use `codeagentx chat` for an interactive local session. The module form also
+works without installation: `python -m codeagentx run "..."`.
 
 Start the runtime service:
 
