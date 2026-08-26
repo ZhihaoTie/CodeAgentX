@@ -13,10 +13,13 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl git ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 1000 codeagentx \
-    && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash codeagentx \
+    && useradd --create-home --shell /bin/bash codeagentx \
     && mkdir -p /workspaces \
     && chown -R codeagentx:codeagentx /app /workspaces
+
+RUN groupmod --gid 1000 codeagentx \
+    && usermod --uid 1000 --gid 1000 codeagentx \
+    && chown -R codeagentx:codeagentx /app /workspaces /home/codeagentx
 
 COPY --from=build /workspace/target/control-plane-0.1.0-SNAPSHOT.jar /app/control-plane.jar
 
