@@ -93,6 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Shortcut for --mode auto in one-shot runs",
     )
     parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing project config when used with init",
+    )
+    parser.add_argument(
         "--branch",
         nargs="?",
         const="",
@@ -726,6 +731,7 @@ def main(argv: list[str] | None = None) -> int:
     interactive_chat = False
     fix_from_verifier = False
     doctor_mode = False
+    init_mode = False
     if raw_argv and raw_argv[0] == "run":
         one_shot_run = True
         raw_argv = raw_argv[1:]
@@ -738,6 +744,9 @@ def main(argv: list[str] | None = None) -> int:
         raw_argv = raw_argv[1:]
     elif raw_argv and raw_argv[0] == "doctor":
         doctor_mode = True
+        raw_argv = raw_argv[1:]
+    elif raw_argv and raw_argv[0] == "init":
+        init_mode = True
         raw_argv = raw_argv[1:]
 
     parser = build_parser()
@@ -752,6 +761,11 @@ def main(argv: list[str] | None = None) -> int:
         args = parser.parse_args(raw_argv)
     if args.yes:
         args.mode = "auto"
+    if (one_shot_run or doctor_mode or init_mode) and "--workspace-root" not in raw_argv:
+        args.workspace_root = "."
+    project_config = {} if init_mode else _load_project_cli_config(Path(args.workspace_root))
+    if not args.verify_command and project_config.get("verify"):
+        args.verify_command = str(project_config["verify"])
     if one_shot_run and not fix_from_verifier and not args.prompt:
         parser.error('the "run" command requires a prompt, for example: codeagentx run "fix the failing tests"')
     if args.commit_message and not args.commit:
@@ -764,8 +778,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error('the "chat" command does not accept a prompt; use "run" for one-shot tasks')
     if doctor_mode and args.prompt:
         parser.error('the "doctor" command does not accept a prompt')
-    if (one_shot_run or doctor_mode) and "--workspace-root" not in raw_argv:
-        args.workspace_root = "."
+    if init_mode and args.prompt:
+        parser.error('the "init" command does not accept a prompt')
 
     config = Config(
         model_provider=args.provider,
@@ -820,6 +834,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if doctor_mode:
         return _run_doctor(config)
+    if init_mode:
+        return _run_init(config, force=args.force)
 
     if args.benchmark and args.swebench:
         print("Benchmark error: use either --benchmark or --swebench, not both", file=sys.stderr)
@@ -1220,6 +1236,58 @@ def _run_initial_fix_verifier(config: Config):
             enforce_workspace=config.enforce_workspace_paths,
         ),
     )
+
+
+def _project_cli_config_path(workspace: Path) -> Path:
+    return workspace / ".codeagentx" / "config.json"
+
+
+def _load_project_cli_config(workspace: Path) -> dict[str, object]:
+    path = _project_cli_config_path(workspace)
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def _run_init(config: Config, *, force: bool) -> int:
+    workspace = Path(config.workspace_root).resolve()
+    path = _project_cli_config_path(workspace)
+    if path.exists() and not force:
+        print(f"Project config already exists: {path}", file=sys.stderr)
+        print("Use --force to overwrite it.", file=sys.stderr)
+        return 1
+
+    verify = config.verification_command
+    if not verify:
+        candidates = _candidate_verify_commands(workspace)
+        if candidates:
+            verify = candidates[0]
+
+    payload: dict[str, object] = {
+        "mode": config.permission_mode.value,
+    }
+    if verify:
+        payload["verify"] = verify
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    print("CodeAgent-X project config created")
+    print(f"Path: {path}")
+    if verify:
+        print(f"Verifier: {verify}")
+        print("\nNext time you can run:")
+        print("  codeagentx fix --yes")
+    else:
+        print("\nNo obvious verifier was found. Add one later with:")
+        print(f"  codeagentx init --verify {_cli_arg('pytest -q')} --force")
+    return 0
 
 
 def _run_doctor(config: Config) -> int:

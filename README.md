@@ -132,6 +132,18 @@ It detects the repository, lists likely verifier commands, runs the most likely
 one as a smoke check, and prints the exact `codeagentx fix --verify ...` command
 to use if the verifier fails.
 
+To save the verifier for this checkout, initialize a small project config:
+
+```bash
+codeagentx init --verify "pytest -q" --yes
+```
+
+This writes `.codeagentx/config.json`. After that, the usual local loop is just:
+
+```bash
+codeagentx fix --yes
+```
+
 If you already have a failing command, use `fix` so CodeAgent-X starts from the
 failure output instead of asking you to describe the bug:
 

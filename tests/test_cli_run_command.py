@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import io
+import json
 import os
+import tempfile
 from types import SimpleNamespace
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -63,6 +65,59 @@ class CliRunCommandTest(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 2)
         self.assertIn('the "fix" command requires --verify', stderr.getvalue())
+
+    def test_init_writes_project_config_with_verify(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output = io.StringIO()
+
+            with redirect_stdout(output):
+                exit_code = cli.main([
+                    "init",
+                    "--workspace-root",
+                    tmp,
+                    "--verify",
+                    "pytest -q",
+                    "--yes",
+                ])
+
+            config_path = os.path.join(tmp, ".codeagentx", "config.json")
+            with open(config_path, encoding="utf-8") as handle:
+                config = json.load(handle)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(config["verify"], "pytest -q")
+        self.assertEqual(config["mode"], "auto")
+        self.assertIn("codeagentx fix --yes", output.getvalue())
+
+    def test_fix_subcommand_uses_project_verify_config(self) -> None:
+        result = SimpleNamespace(passed=True, stdout="", stderr="", exit_code=0)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config_dir = os.path.join(tmp, ".codeagentx")
+            os.makedirs(config_dir)
+            with open(os.path.join(config_dir, "config.json"), "w", encoding="utf-8") as handle:
+                json.dump({"verify": "pytest -q"}, handle)
+
+            with (
+                patch("codeagentx.cli.LocalSandboxRunner") as runner,
+                patch("codeagentx.cli.AgentLoop") as agent_loop,
+            ):
+                runner.return_value.run.return_value = result
+                output = io.StringIO()
+
+                with redirect_stdout(output):
+                    exit_code = cli.main([
+                        "fix",
+                        "--workspace-root",
+                        tmp,
+                        "--provider",
+                        "mock",
+                    ])
+
+        self.assertEqual(exit_code, 0)
+        agent_loop.assert_not_called()
+        runner.return_value.run.assert_called_once()
+        self.assertIn("running verifier first: pytest -q", output.getvalue())
 
     def test_fix_subcommand_skips_agent_when_verifier_passes(self) -> None:
         result = SimpleNamespace(passed=True, stdout="", stderr="", exit_code=0)
