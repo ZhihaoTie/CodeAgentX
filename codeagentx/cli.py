@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import shlex
+import subprocess
 import sys
 from pathlib import Path
 
@@ -80,6 +81,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["ask", "auto", "plan"],
         default=env_str("CODEAGENTX_PERMISSION_MODE", "ask"),
         help="Permission mode (default: CODEAGENTX_PERMISSION_MODE or ask)",
+    )
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Shortcut for --mode auto in one-shot runs",
     )
     parser.add_argument(
         "--max-turns",
@@ -484,6 +490,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Command to run after the model stops using tools",
     )
     parser.add_argument(
+        "--verify",
+        dest="verify_command",
+        help="Alias for --verify-command, for example: --verify \"pytest -q\"",
+    )
+    parser.add_argument(
         "--no-task-constraints",
         action="store_true",
         help="Disable deterministic task constraint verification",
@@ -660,8 +671,26 @@ def run_interactive(agent: AgentLoop) -> None:
 def main(argv: list[str] | None = None) -> int:
     load_env_file()
     _configure_console()
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    one_shot_run = False
+    if raw_argv and raw_argv[0] == "run":
+        one_shot_run = True
+        raw_argv = raw_argv[1:]
+
     parser = build_parser()
-    args = parser.parse_args(argv)
+    if one_shot_run:
+        args, extra_prompt_parts = parser.parse_known_args(raw_argv)
+        if extra_prompt_parts:
+            if args.prompt:
+                args.prompt = " ".join([args.prompt, *extra_prompt_parts])
+            else:
+                parser.error(f"unrecognized arguments: {' '.join(extra_prompt_parts)}")
+    else:
+        args = parser.parse_args(raw_argv)
+    if args.yes:
+        args.mode = "auto"
+    if one_shot_run and not args.prompt:
+        parser.error('the "run" command requires a prompt, for example: codeagentx run "fix the failing tests"')
 
     config = Config(
         model_provider=args.provider,
@@ -1046,7 +1075,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.prompt:
         try:
+            if one_shot_run:
+                print(f"CodeAgent-X run: {args.prompt}")
+                print(f"Workspace: {Path(config.workspace_root).resolve()}")
+                if config.verification_command:
+                    print(f"Verify: {config.verification_command}")
+                print()
             agent.run(args.prompt)
+            if one_shot_run:
+                _print_run_summary(agent, config)
             print()
         except Exception as exc:
             print(f"Error: {exc}", file=sys.stderr)
@@ -1055,6 +1092,56 @@ def main(argv: list[str] | None = None) -> int:
 
     run_interactive(agent)
     return 0
+
+
+def _print_run_summary(agent: AgentLoop, config: Config) -> None:
+    """Print a compact developer-facing summary after a one-shot local run."""
+
+    state = getattr(agent, "last_state", None)
+    print("\n--- CodeAgent-X summary ---")
+    if state is not None:
+        print(f"Task: {state.task_id}")
+        verification = getattr(state, "verification_report", None)
+        if isinstance(verification, dict):
+            status = verification.get("status", "unknown")
+            summary = verification.get("summary", "")
+            print(f"Verification: {status}" + (f" - {summary}" if summary else ""))
+        trajectory_dir = config.trajectory_dir
+        if trajectory_dir:
+            print(f"Trajectory dir: {trajectory_dir}")
+
+    workspace = Path(config.workspace_root).resolve()
+    status = _git_command(["git", "status", "--short"], cwd=workspace)
+    if status is not None:
+        changed = [line for line in status.splitlines() if line.strip()]
+        print(f"Changed files: {len(changed)}")
+        for line in changed[:20]:
+            print(f"  {line}")
+        if len(changed) > 20:
+            print(f"  ... {len(changed) - 20} more")
+
+    diff = _git_command(["git", "diff", "--stat"], cwd=workspace)
+    if diff:
+        print("\nDiff stat:")
+        print(diff)
+
+
+def _git_command(command: list[str], *, cwd: Path) -> str | None:
+    try:
+        result = subprocess.run(
+            command,
+            cwd=str(cwd),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
 
 
 def _filter_benchmark_tasks(tasks, *, task_ids: list[str], limit: int | None):

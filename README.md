@@ -110,6 +110,18 @@ Run the deterministic demo:
 python demos/run_3min_demo.py
 ```
 
+Run the local agent directly in the current repository:
+
+```bash
+python -m codeagentx run "Fix the failing tests" --verify "python -m unittest discover -s tests -v" --yes
+```
+
+This is the lightweight developer entrypoint: CodeAgent-X works in your current
+checkout, edits files with the runtime tools, runs the optional verifier, and
+prints a compact summary with changed files and diff stats. Use the server-side
+control plane only when you want the asynchronous GitHub Issue -> review -> PR
+workflow.
+
 Start the runtime service:
 
 ```bash
