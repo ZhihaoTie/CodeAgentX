@@ -25,6 +25,7 @@ from .config import (
     env_str,
     load_env_file,
 )
+from .sandbox import LocalSandboxRunner, SandboxSpec
 from .tools.base import ToolRegistry
 from .terminal import write_text
 
@@ -723,8 +724,13 @@ def main(argv: list[str] | None = None) -> int:
     raw_argv = list(sys.argv[1:] if argv is None else argv)
     one_shot_run = False
     interactive_chat = False
+    fix_from_verifier = False
     if raw_argv and raw_argv[0] == "run":
         one_shot_run = True
+        raw_argv = raw_argv[1:]
+    elif raw_argv and raw_argv[0] == "fix":
+        one_shot_run = True
+        fix_from_verifier = True
         raw_argv = raw_argv[1:]
     elif raw_argv and raw_argv[0] == "chat":
         interactive_chat = True
@@ -742,12 +748,14 @@ def main(argv: list[str] | None = None) -> int:
         args = parser.parse_args(raw_argv)
     if args.yes:
         args.mode = "auto"
-    if one_shot_run and not args.prompt:
+    if one_shot_run and not fix_from_verifier and not args.prompt:
         parser.error('the "run" command requires a prompt, for example: codeagentx run "fix the failing tests"')
     if args.commit_message and not args.commit:
         parser.error("--commit-message requires --commit")
     if args.pr and not args.commit:
         parser.error("--pr requires --commit")
+    if fix_from_verifier and not args.verify_command:
+        parser.error('the "fix" command requires --verify, for example: codeagentx fix --verify "pytest -q"')
     if interactive_chat and args.prompt:
         parser.error('the "chat" command does not accept a prompt; use "run" for one-shot tasks')
     if one_shot_run and "--workspace-root" not in raw_argv:
@@ -1132,10 +1140,21 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0 if report.failed_tasks == 0 else 1
 
-    agent = AgentLoop(config=config, registry=registry)
-
-    if args.prompt:
+    if args.prompt or fix_from_verifier:
         try:
+            if fix_from_verifier:
+                initial_result = _run_initial_fix_verifier(config)
+                if initial_result.passed:
+                    print("CodeAgent-X fix: verifier already passes; no changes needed.")
+                    print(f"Verify: {config.verification_command}")
+                    print(f"Workspace: {Path(config.workspace_root).resolve()}")
+                    return 0
+                args.prompt = _build_fix_prompt(
+                    args.prompt,
+                    command=config.verification_command or "",
+                    result=initial_result,
+                )
+            agent = AgentLoop(config=config, registry=registry)
             if one_shot_run:
                 print(f"CodeAgent-X run: {args.prompt}")
                 print(f"Workspace: {Path(config.workspace_root).resolve()}")
@@ -1172,8 +1191,53 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
 
+    agent = AgentLoop(config=config, registry=registry)
     run_interactive(agent)
     return 0
+
+
+def _run_initial_fix_verifier(config: Config):
+    command = config.verification_command
+    if not command:
+        raise RuntimeError("fix requires a verification command")
+    print(f"CodeAgent-X fix: running verifier first: {command}")
+    return LocalSandboxRunner().run(
+        command,
+        spec=SandboxSpec(
+            workspace_root=config.workspace_root,
+            cwd=config.workspace_root,
+            timeout_seconds=config.verification_timeout_seconds,
+            max_output_chars=config.max_output_chars,
+            enforce_workspace=config.enforce_workspace_paths,
+        ),
+    )
+
+
+def _build_fix_prompt(user_prompt: str | None, *, command: str, result) -> str:
+    context = " ".join((user_prompt or "").split())
+    if not context:
+        context = "Fix the failing verification command."
+    stdout = _clip_for_prompt(result.stdout)
+    stderr = _clip_for_prompt(result.stderr)
+    return (
+        f"{context}\n\n"
+        "The verification command failed before the agent started. "
+        "Use this failure output as the primary debugging context, inspect the repository, "
+        "make the smallest safe fix, and rerun the configured verifier.\n\n"
+        f"Command: {command}\n"
+        f"Exit code: {result.exit_code}\n\n"
+        "STDOUT:\n"
+        f"```text\n{stdout}\n```\n\n"
+        "STDERR:\n"
+        f"```text\n{stderr}\n```"
+    )
+
+
+def _clip_for_prompt(text: str, *, limit: int = 12000) -> str:
+    if len(text) <= limit:
+        return text
+    omitted = len(text) - limit
+    return text[-limit:] + f"\n... clipped {omitted} earlier chars"
 
 
 def _print_run_summary(agent: AgentLoop, config: Config) -> None:

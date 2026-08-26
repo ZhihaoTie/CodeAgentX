@@ -55,6 +55,72 @@ class CliRunCommandTest(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
         self.assertIn('the "chat" command does not accept a prompt', stderr.getvalue())
 
+    def test_fix_subcommand_requires_verify(self) -> None:
+        stderr = io.StringIO()
+
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            cli.main(["fix"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn('the "fix" command requires --verify', stderr.getvalue())
+
+    def test_fix_subcommand_skips_agent_when_verifier_passes(self) -> None:
+        result = SimpleNamespace(passed=True, stdout="", stderr="", exit_code=0)
+
+        with (
+            patch("codeagentx.cli.LocalSandboxRunner") as runner,
+            patch("codeagentx.cli.AgentLoop") as agent_loop,
+        ):
+            runner.return_value.run.return_value = result
+            output = io.StringIO()
+
+            with redirect_stdout(output):
+                exit_code = cli.main([
+                    "fix",
+                    "--provider",
+                    "mock",
+                    "--verify",
+                    "python --version",
+                ])
+
+        self.assertEqual(exit_code, 0)
+        agent_loop.assert_not_called()
+        self.assertIn("verifier already passes", output.getvalue())
+
+    def test_fix_subcommand_injects_failed_verifier_output_into_prompt(self) -> None:
+        result = SimpleNamespace(
+            passed=False,
+            stdout="",
+            stderr="AssertionError: expected 1 got 2",
+            exit_code=1,
+        )
+
+        with (
+            patch("codeagentx.cli.LocalSandboxRunner") as runner,
+            patch("codeagentx.cli.AgentLoop") as agent_loop,
+        ):
+            runner.return_value.run.return_value = result
+            agent = agent_loop.return_value
+            agent.last_state = None
+
+            with redirect_stdout(io.StringIO()):
+                exit_code = cli.main([
+                    "fix",
+                    "--provider",
+                    "mock",
+                    "--model",
+                    "mock-model",
+                    "--no-trajectory",
+                    "--verify",
+                    "pytest -q",
+                ])
+
+        self.assertEqual(exit_code, 0)
+        prompt = agent.run.call_args.args[0]
+        self.assertIn("verification command failed before the agent started", prompt)
+        self.assertIn("Command: pytest -q", prompt)
+        self.assertIn("AssertionError: expected 1 got 2", prompt)
+
     def test_run_subcommand_defaults_workspace_to_current_directory(self) -> None:
         with patch("codeagentx.cli.AgentLoop") as agent_loop:
             agent = agent_loop.return_value

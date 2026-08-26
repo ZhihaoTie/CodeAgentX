@@ -122,6 +122,17 @@ Run the local agent directly in the current repository:
 codeagentx run "Fix the failing tests" --verify "python -m unittest discover -s tests -v" --yes
 ```
 
+If you already have a failing command, use `fix` so CodeAgent-X starts from the
+failure output instead of asking you to describe the bug:
+
+```bash
+codeagentx fix --verify "pytest -q" --yes
+```
+
+`fix` first runs the verifier. If it already passes, no agent run is started. If
+it fails, CodeAgent-X injects the exit code, stdout, and stderr into the task
+prompt, then asks the agent to inspect, patch, and rerun the same verifier.
+
 This is the lightweight developer entrypoint: CodeAgent-X works in your current
 checkout, edits files with the runtime tools, runs the optional verifier, and
 prints a compact summary with changed files and diff stats. Use the server-side
